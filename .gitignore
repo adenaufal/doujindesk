@@ -1,0 +1,232 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+build
+*.local
+
+# Environment variables (CRITICAL - Contains API keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Cache directories
+.cache
+.parcel-cache
+.next
+.nuxt
+.vite
+.turbo
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Deployment and CI/CD
+.vercel
+.netlify
+.firebase
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+
+# Supabase local development
+.branches
+.temp
+supabase/
+
+# ===================================
+# SENSITIVE DATA & CREDENTIALS
+# ===================================
+
+# Certificate & Key Files
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+
+# Credential Files
+secrets.json
+credentials.json
+auth.json
+config.json
+.secrets/
+secrets/
+
+# ===================================
+# DATABASE & STORAGE
+# ===================================
+
+# Database Files
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Storage & Backup Directories
+backups/
+backup/
+data/
+storage/
+
+# ===================================
+# DEVELOPMENT & TESTING
+# ===================================
+
+# Test Results & Coverage
+test-results/
+test-output/
+.nyc_output/
+coverage/
+playwright-report/
+jest-coverage/
+
+# ===================================
+# CLOUD & DEPLOYMENT
+# ===================================
+
+# Cloud Provider Configs
+.aws/
+.gcp/
+.azure/
+
+# Infrastructure as Code
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+*.tfvars.json
+
+# Docker & Kubernetes
+docker-compose.override.yml
+k8s-secrets.yml
+*-secret.yml
+*-secrets.yml
+
+# ===================================
+# IDE & DEVELOPMENT TOOLS
+# ===================================
+
+# VSCode History & Settings
+.history/
+.vscode/settings.json
+*.code-workspace
+
+# JetBrains IDEs
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# ===================================
+# LOGS & MONITORING
+# ===================================
+
+# Log Files
+*.log
+logs/
+error.log
+access.log
+debug.log
+
+# Monitoring & Metrics
+monitoring/
+metrics/
+.monitoring/
+
+# ===================================
+# ADDITIONAL SECURITY
+# ===================================
+
+# SSH Keys
+*.ssh/
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# GPG Keys
+*.gpg
+*.asc
+
+# API Documentation with Secrets
+api-docs-private/
+postman-collections-private/
+
+# TypeScript
+*.tsbuildinfo
+
+# Storybook build outputs
+storybook-static
