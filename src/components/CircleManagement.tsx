@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -28,6 +28,10 @@ const CircleManagement: React.FC = () => {
   const [, setIsReviewDialogOpen] = useState(false)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
     fetchCircles()
   }, [])
 
@@ -38,6 +42,10 @@ const CircleManagement: React.FC = () => {
   const fetchCircles = async () => {
     try {
       setLoading(true)
+      if (!supabase) {
+        toast.error('Database is not configured')
+        return
+      }
       const { data, error } = await supabase
         .from('circles')
         .select(`
@@ -82,6 +90,10 @@ const CircleManagement: React.FC = () => {
 
   const updateCircleStatus = async (circleId: string, newStatus: string, notes?: string) => {
     try {
+      if (!supabase) {
+        toast.error('Database is not configured')
+        return
+      }
       const { error } = await supabase
         .from('circles')
         .update({ 
@@ -120,6 +132,24 @@ const CircleManagement: React.FC = () => {
         <Icon className={`h-3 w-3 ${config.color}`} />
         {status.replace('_', ' ').toUpperCase()}
       </Badge>
+    )
+  }
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-2xl mx-auto p-6">
+          <Card>
+            <CardContent className="p-6 space-y-2">
+              <h1 className="text-xl font-semibold">Circle management is unavailable</h1>
+              <p className="text-sm text-muted-foreground">
+                This page requires Supabase credentials. Set <code>VITE_SUPABASE_URL</code> and{' '}
+                <code>VITE_SUPABASE_ANON_KEY</code> in the site environment variables and redeploy.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     )
   }
 
