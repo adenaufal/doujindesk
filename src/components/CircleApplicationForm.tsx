@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { supabase } from '../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { Card, CardContent } from './ui/card'
 import { toast } from 'sonner'
 import { Upload, X, DollarSign } from 'lucide-react'
 
@@ -183,6 +184,22 @@ export default function CircleApplicationForm({ eventId, onSubmit }: CircleAppli
   const watchedSpaceType = form.watch('space_preference')
   const watchedCurrency = form.watch('currency')
   const watchedProductTypes = form.watch('product_types')
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 space-y-2">
+            <h1 className="text-xl font-semibold">Applications are unavailable</h1>
+            <p className="text-sm text-muted-foreground">
+              This form requires Supabase credentials. Set <code>VITE_SUPABASE_URL</code> and{' '}
+              <code>VITE_SUPABASE_ANON_KEY</code> in the site environment variables and redeploy.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
   
   const selectedSpaceType = SPACE_TYPES.find(type => type.value === watchedSpaceType)
   const totalPrice = selectedSpaceType ? 
@@ -219,6 +236,10 @@ export default function CircleApplicationForm({ eventId, onSubmit }: CircleAppli
   const onFormSubmit = async (data: CircleApplicationFormData) => {
     setIsSubmitting(true)
     try {
+      if (!supabase) {
+        toast.error('Database is not configured')
+        return
+      }
       // Upload images to Supabase Storage
       const imageUrls: string[] = []
       
