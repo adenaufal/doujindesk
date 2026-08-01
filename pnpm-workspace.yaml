@@ -1,0 +1,7 @@
+# pnpm 11 reads build-script approvals from here, not from a "pnpm" field in
+# package.json. Unapproved build scripts make `pnpm install` exit 1
+# (ERR_PNPM_IGNORED_BUILDS), which fails every CI and Vercel install.
+# esbuild only downloads its platform binary when the optional
+# @esbuild/<platform> package is missing; approving it costs nothing.
+allowBuilds:
+  esbuild: true

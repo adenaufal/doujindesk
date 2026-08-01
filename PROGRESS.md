@@ -15,6 +15,34 @@ and `P16-hardening` restructure this file.
   and deleted `supabase/config.ts` in the same commit, so tracking migrations never
   exposed the plaintext service role key it held. `001_initial_schema.sql` is now
   tracked. Added `.env.example` (four names, no values) and extended `.vercelignore`.
+- `P3-platform` — dropped 13 dependencies (leaflet ×3, express/cors/dotenv/nodemon/
+  concurrently + their types, the two Trae IDE plugins, `vite-tsconfig-paths`),
+  added TanStack Query, i18next, `@fontsource-variable/figtree`, Vitest + Testing
+  Library + `fake-indexeddb`, and `vite-plugin-pwa`. Deleted the Express server
+  (`api/app.ts`, `index.ts`, `server.ts`, `routes/auth.ts`), `nodemon.json` and the
+  dev proxy: **every privileged operation in this plan is a Postgres
+  `SECURITY DEFINER` RPC called with the user's own JWT**, so there is no server
+  and no service-role key in the runtime. The one exception is the inbound
+  payment-gateway webhook, whose caller holds no Supabase JWT — P11 adds exactly
+  one bare `@vercel/node` handler at `api/webhooks/payment.ts`. Trade recorded:
+  that endpoint can only be exercised via `vercel dev` or a preview deploy, never
+  `pnpm dev`. `@vercel/node` and the `/api/(.*)` rewrite stay for it. Vitest is
+  configured inside `vite.config.ts` (jsdom, globals, `src/test/setup.ts`);
+  `pnpm test` and `pnpm build` are green and the build emits `dist/sw.js` +
+  `dist/manifest.webmanifest`. PWA runtime caching is **one** entry — public
+  Supabase Storage objects, CacheFirst — and nothing from `/rest/v1`, `/auth/v1`
+  or `/realtime/v1`, because a cached ticket read is a stale "valid" answer and
+  the Cache API outlives logout. Added `pnpm-workspace.yaml`
+  (`allowBuilds: esbuild: true`); without it `pnpm install` exits 1 on
+  ERR_PNPM_IGNORED_BUILDS and every CI/Vercel install fails.
+  - PWA icons (192, 512, 512 maskable, 180 apple-touch, favicon.ico) were
+    generated from `public/favicon.svg` — it scales cleanly, but **the mark is
+    green on near-black and does not match the orange `--primary` brand**. Owner:
+    supply a real brand source SVG and re-run
+    `pnpm dlx @vite-pwa/assets-generator --preset minimal-2023 public/<file>.svg`.
+  - `pnpm lint` still exits 1 on 24 pre-existing errors in files owned by other
+    packages (`stores/*`, `components/*`, `ui/badge|button|form|textarea`). Not
+    touched here; P7 installs the lint gate and the baseline disables.
 
 ## In progress
 

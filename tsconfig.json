@@ -13,6 +13,9 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    /* Explicit `types` disables auto-inclusion of every @types/* package, so
+       "node" is listed for the api/ serverless handler. */
+    "types": ["vitest/globals", "vite-plugin-pwa/client", "node"],
 
     /* Linting */
     "strict": true,
