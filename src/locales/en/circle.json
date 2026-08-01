@@ -1,0 +1,76 @@
+{
+  "application": {
+    "title": "Circle application",
+    "subtitle": "Apply for a booth at this event.",
+    "draftSaved": "Draft saved",
+    "submit": "Submit application",
+    "submitted": "Application submitted",
+    "deadline": "Applications close {{date}}",
+    "closed": "Applications are closed for this event."
+  },
+  "section": {
+    "circle": "Circle",
+    "contact": "Contact",
+    "works": "Works",
+    "booth": "Booth",
+    "extras": "Extras",
+    "payment": "Payment",
+    "review": "Review"
+  },
+  "field": {
+    "circleName": "Circle name",
+    "circleNameFurigana": "Circle name reading",
+    "circleNameFuriganaHelp": "Kana reading, used for sorting and search. Not a translation.",
+    "penName": "Pen name",
+    "penNameFurigana": "Pen name reading",
+    "email": "Email",
+    "phone": "Phone",
+    "website": "Website",
+    "genre": "Genre",
+    "fandom": "Fandom",
+    "rating": "Rating",
+    "description": "About your circle",
+    "worksDescription": "What you are selling",
+    "productTypes": "Product types",
+    "spacePreference": "Space preference",
+    "additionalTable": "Extra table",
+    "additionalChair": "Extra chair",
+    "additionalPower": "Power outlet",
+    "exhibitorPasses": "Exhibitor passes",
+    "circleCut": "Circle cut",
+    "circleCutHelp": "The image shown in the catalog. PNG or JPG, max 2 MB.",
+    "specialRequests": "Special requests"
+  },
+  "rating": {
+    "allAges": "All ages",
+    "r15": "R15",
+    "r18": "R18"
+  },
+  "status": {
+    "title": "Application status",
+    "pending": "Waiting for review",
+    "underReview": "Under review",
+    "accepted": "Accepted",
+    "waitlisted": "Waitlisted",
+    "rejected": "Not accepted",
+    "rejectedReason": "Reason: {{reason}}",
+    "paymentDue": "Payment due {{date}}",
+    "payNow": "Pay now"
+  },
+  "booth": {
+    "title": "Your booth",
+    "number": "Booth",
+    "hall": "Hall",
+    "block": "Block",
+    "notAllocated": "Not allocated yet",
+    "notAllocatedBody": "Booth numbers are published once allocation finishes."
+  },
+  "error": {
+    "circleNameRequired": "Enter your circle name.",
+    "penNameRequired": "Enter your pen name.",
+    "emailInvalid": "Enter a valid email address.",
+    "cutTooLarge": "That file is larger than 2 MB.",
+    "cutWrongType": "Upload a PNG or JPG.",
+    "alreadyApplied": "You already have an application for this event."
+  }
+}

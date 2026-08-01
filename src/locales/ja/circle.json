@@ -1,0 +1,76 @@
+{
+  "application": {
+    "title": "サークル参加申込",
+    "subtitle": "このイベントのブースに申し込みます。",
+    "draftSaved": "下書きを保存しました",
+    "submit": "申込を送信",
+    "submitted": "申込を送信しました",
+    "deadline": "申込締切：{{date}}",
+    "closed": "このイベントの申込は締め切りました。"
+  },
+  "section": {
+    "circle": "サークル情報",
+    "contact": "連絡先",
+    "works": "頒布物",
+    "booth": "ブース",
+    "extras": "オプション",
+    "payment": "お支払い",
+    "review": "確認"
+  },
+  "field": {
+    "circleName": "サークル名",
+    "circleNameFurigana": "サークル名（ふりがな）",
+    "circleNameFuriganaHelp": "並び順と検索に使う読みです。翻訳ではありません。",
+    "penName": "ペンネーム",
+    "penNameFurigana": "ペンネーム（ふりがな）",
+    "email": "メールアドレス",
+    "phone": "電話番号",
+    "website": "ウェブサイト",
+    "genre": "ジャンル",
+    "fandom": "ジャンル詳細",
+    "rating": "対象年齢",
+    "description": "サークル紹介",
+    "worksDescription": "頒布物の内容",
+    "productTypes": "頒布物の種類",
+    "spacePreference": "希望スペース",
+    "additionalTable": "机の追加",
+    "additionalChair": "椅子の追加",
+    "additionalPower": "電源",
+    "exhibitorPasses": "サークル通行証",
+    "circleCut": "サークルカット",
+    "circleCutHelp": "カタログに掲載される画像です。PNGまたはJPG、2MBまで。",
+    "specialRequests": "特記事項"
+  },
+  "rating": {
+    "allAges": "全年齢",
+    "r15": "R15",
+    "r18": "R18"
+  },
+  "status": {
+    "title": "申込状況",
+    "pending": "審査待ち",
+    "underReview": "審査中",
+    "accepted": "当選",
+    "waitlisted": "補欠",
+    "rejected": "落選",
+    "rejectedReason": "理由：{{reason}}",
+    "paymentDue": "支払期限：{{date}}",
+    "payNow": "支払う"
+  },
+  "booth": {
+    "title": "配置",
+    "number": "ブース",
+    "hall": "ホール",
+    "block": "ブロック",
+    "notAllocated": "未配置",
+    "notAllocatedBody": "配置作業の完了後にブース番号が公開されます。"
+  },
+  "error": {
+    "circleNameRequired": "サークル名を入力してください。",
+    "penNameRequired": "ペンネームを入力してください。",
+    "emailInvalid": "正しいメールアドレスを入力してください。",
+    "cutTooLarge": "ファイルサイズが2MBを超えています。",
+    "cutWrongType": "PNGまたはJPGをアップロードしてください。",
+    "alreadyApplied": "このイベントには既に申し込み済みです。"
+  }
+}

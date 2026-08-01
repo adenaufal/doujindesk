@@ -1,0 +1,72 @@
+{
+  "title": "Circle catalog",
+  "subtitle": "Browse every circle at this event.",
+  "searchPlaceholder": "Search circle, pen name, or booth code",
+  "filter": {
+    "title": "Filters",
+    "genre": "Genre",
+    "fandom": "Fandom",
+    "rating": "Rating",
+    "day": "Day",
+    "hall": "Hall",
+    "block": "Block",
+    "onlineShop": "Has online shop",
+    "apply": "Show results",
+    "clear": "Clear all"
+  },
+  "sort": {
+    "label": "Sort by",
+    "booth": "Booth code",
+    "name": "Circle name",
+    "reading": "Reading (kana)",
+    "newest": "Recently added"
+  },
+  "card": {
+    "booth": "Booth",
+    "noBooth": "Booth pending",
+    "penName": "PN",
+    "r18Hidden": "R18 — tap to reveal",
+    "r18Reveal": "Show R18 content"
+  },
+  "detail": {
+    "about": "About",
+    "works": "Works",
+    "links": "Links",
+    "showOnMap": "Show on map",
+    "sample": "Sample works"
+  },
+  "map": {
+    "title": "Floor map",
+    "legend": "Legend",
+    "you": "You are here",
+    "selectBooth": "Select a booth",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset view"
+  },
+  "schedule": {
+    "title": "Schedule",
+    "allDay": "All day",
+    "stage": "Stage",
+    "noEvents": "Nothing scheduled for this day yet."
+  },
+  "ticket": {
+    "title": "Tickets",
+    "tier": "Ticket type",
+    "price": "Price",
+    "fees": "incl. {{amount}} fees",
+    "quantity": "Quantity",
+    "soldOut": "Sold out",
+    "remaining_one": "{{count}} left",
+    "remaining_other": "{{count}} left",
+    "salesEnd": "Sales end {{date}}",
+    "total": "Total",
+    "checkout": "Check out",
+    "processing": "Processing",
+    "success": "Tickets purchased",
+    "wallet": "Ticket wallet",
+    "showQr": "Show QR",
+    "used": "Used",
+    "usedAt": "Used {{time}}"
+  }
+}

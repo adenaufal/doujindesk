@@ -1,0 +1,97 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "applications": "Applications",
+    "boothsAllocated": "Booths allocated",
+    "ticketsSold": "Tickets sold",
+    "checkedIn": "Checked in",
+    "revenue": "Revenue"
+  },
+  "review": {
+    "title": "Circle applications",
+    "tab": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "waitlist": "Waitlist",
+      "rejected": "Rejected"
+    },
+    "column": {
+      "circle": "Circle",
+      "genre": "Genre",
+      "boothPreference": "Booth preference",
+      "payment": "Payment",
+      "submitted": "Submitted"
+    },
+    "approve": "Approve",
+    "waitlist": "Waitlist",
+    "reject": "Reject",
+    "rejectReason": "Reason for rejection",
+    "rejectReasonRequired": "Give a reason — the circle sees this.",
+    "bulkConfirm_one": "Approve {{count}} application?",
+    "bulkConfirm_other": "Approve {{count}} applications?",
+    "bulkConfirmBody": "Approved circles become eligible for booth allocation.",
+    "inspector": "Application detail"
+  },
+  "booth": {
+    "title": "Booth allocation",
+    "unallocated": "Unallocated",
+    "allocated": "Allocated",
+    "assign": "Assign booth",
+    "unassign": "Unassign",
+    "conflict": "That booth is already taken by {{circle}}.",
+    "editor": "Floor-plan editor",
+    "addBooth": "Add booth",
+    "gridSnap": "Snap to grid",
+    "saveLayout": "Save layout"
+  },
+  "finance": {
+    "title": "Finance",
+    "circleFees": "Circle fees",
+    "ticketRevenue": "Ticket revenue",
+    "refunds": "Refunds",
+    "net": "Net",
+    "period": "Period",
+    "column": {
+      "date": "Date",
+      "type": "Type",
+      "payer": "Payer",
+      "method": "Method",
+      "amount": "Amount",
+      "reference": "Reference"
+    },
+    "type": {
+      "circleFee": "Circle fee",
+      "ticketSale": "Ticket sale",
+      "refund": "Refund"
+    },
+    "total": "Total",
+    "ledgerNote": "Every figure here is summed from transaction rows."
+  },
+  "staff": {
+    "title": "Staff",
+    "invite": "Invite staff",
+    "role": "Role",
+    "tasks": "Tasks",
+    "addTask": "Add task",
+    "assignee": "Assignee",
+    "due": "Due",
+    "done": "Done",
+    "open": "Open"
+  },
+  "announcement": {
+    "title": "Announcements",
+    "compose": "New announcement",
+    "subject": "Subject",
+    "body": "Message",
+    "audience": "Audience",
+    "publish": "Publish",
+    "published": "Published {{date}}",
+    "draft": "Draft"
+  },
+  "queue": {
+    "title": "Queue",
+    "waiting": "Waiting",
+    "insideVenue": "Inside venue",
+    "throughput": "Per hour"
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "dashboard": {
+    "title": "Dasbor",
+    "applications": "Pendaftaran",
+    "boothsAllocated": "Booth teralokasi",
+    "ticketsSold": "Tiket terjual",
+    "checkedIn": "Sudah check-in",
+    "revenue": "Pendapatan"
+  },
+  "review": {
+    "title": "Pendaftaran circle",
+    "tab": {
+      "pending": "Menunggu",
+      "approved": "Diterima",
+      "waitlist": "Daftar tunggu",
+      "rejected": "Ditolak"
+    },
+    "column": {
+      "circle": "Circle",
+      "genre": "Genre",
+      "boothPreference": "Preferensi booth",
+      "payment": "Pembayaran",
+      "submitted": "Dikirim"
+    },
+    "approve": "Terima",
+    "waitlist": "Daftar tunggu",
+    "reject": "Tolak",
+    "rejectReason": "Alasan penolakan",
+    "rejectReasonRequired": "Isi alasannya — circle akan membacanya.",
+    "bulkConfirm_other": "Terima {{count}} pendaftaran?",
+    "bulkConfirmBody": "Circle yang diterima menjadi kandidat alokasi booth.",
+    "inspector": "Detail pendaftaran"
+  },
+  "booth": {
+    "title": "Alokasi booth",
+    "unallocated": "Belum dialokasikan",
+    "allocated": "Sudah dialokasikan",
+    "assign": "Tetapkan booth",
+    "unassign": "Lepas booth",
+    "conflict": "Booth itu sudah dipakai {{circle}}.",
+    "editor": "Editor denah",
+    "addBooth": "Tambah booth",
+    "gridSnap": "Rapatkan ke grid",
+    "saveLayout": "Simpan denah"
+  },
+  "finance": {
+    "title": "Keuangan",
+    "circleFees": "Biaya circle",
+    "ticketRevenue": "Pendapatan tiket",
+    "refunds": "Pengembalian dana",
+    "net": "Bersih",
+    "period": "Periode",
+    "column": {
+      "date": "Tanggal",
+      "type": "Jenis",
+      "payer": "Pembayar",
+      "method": "Metode",
+      "amount": "Jumlah",
+      "reference": "Referensi"
+    },
+    "type": {
+      "circleFee": "Biaya circle",
+      "ticketSale": "Penjualan tiket",
+      "refund": "Refund"
+    },
+    "total": "Total",
+    "ledgerNote": "Semua angka di sini dijumlahkan dari baris transaksi."
+  },
+  "staff": {
+    "title": "Staf",
+    "invite": "Undang staf",
+    "role": "Peran",
+    "tasks": "Tugas",
+    "addTask": "Tambah tugas",
+    "assignee": "Penanggung jawab",
+    "due": "Tenggat",
+    "done": "Selesai",
+    "open": "Belum selesai"
+  },
+  "announcement": {
+    "title": "Pengumuman",
+    "compose": "Pengumuman baru",
+    "subject": "Judul",
+    "body": "Isi pesan",
+    "audience": "Penerima",
+    "publish": "Terbitkan",
+    "published": "Terbit {{date}}",
+    "draft": "Draf"
+  },
+  "queue": {
+    "title": "Antrean",
+    "waiting": "Menunggu",
+    "insideVenue": "Di dalam venue",
+    "throughput": "Per jam"
+  }
+}

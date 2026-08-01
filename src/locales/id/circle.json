@@ -1,0 +1,76 @@
+{
+  "application": {
+    "title": "Pendaftaran circle",
+    "subtitle": "Daftarkan circle Anda untuk mendapat booth di acara ini.",
+    "draftSaved": "Draf tersimpan",
+    "submit": "Kirim pendaftaran",
+    "submitted": "Pendaftaran terkirim",
+    "deadline": "Pendaftaran ditutup {{date}}",
+    "closed": "Pendaftaran untuk acara ini sudah ditutup."
+  },
+  "section": {
+    "circle": "Circle",
+    "contact": "Kontak",
+    "works": "Karya",
+    "booth": "Booth",
+    "extras": "Tambahan",
+    "payment": "Pembayaran",
+    "review": "Tinjau"
+  },
+  "field": {
+    "circleName": "Nama circle",
+    "circleNameFurigana": "Cara baca nama circle",
+    "circleNameFuriganaHelp": "Bacaan kana, dipakai untuk urutan dan pencarian. Bukan terjemahan.",
+    "penName": "Nama pena",
+    "penNameFurigana": "Cara baca nama pena",
+    "email": "Email",
+    "phone": "Telepon",
+    "website": "Situs web",
+    "genre": "Genre",
+    "fandom": "Fandom",
+    "rating": "Rating",
+    "description": "Tentang circle Anda",
+    "worksDescription": "Yang Anda jual",
+    "productTypes": "Jenis produk",
+    "spacePreference": "Preferensi ukuran space",
+    "additionalTable": "Meja tambahan",
+    "additionalChair": "Kursi tambahan",
+    "additionalPower": "Colokan listrik",
+    "exhibitorPasses": "Pass exhibitor",
+    "circleCut": "Circle cut",
+    "circleCutHelp": "Gambar yang tampil di katalog. PNG atau JPG, maksimal 2 MB.",
+    "specialRequests": "Permintaan khusus"
+  },
+  "rating": {
+    "allAges": "Semua umur",
+    "r15": "R15",
+    "r18": "R18"
+  },
+  "status": {
+    "title": "Status pendaftaran",
+    "pending": "Menunggu ditinjau",
+    "underReview": "Sedang ditinjau",
+    "accepted": "Diterima",
+    "waitlisted": "Daftar tunggu",
+    "rejected": "Tidak diterima",
+    "rejectedReason": "Alasan: {{reason}}",
+    "paymentDue": "Batas pembayaran {{date}}",
+    "payNow": "Bayar sekarang"
+  },
+  "booth": {
+    "title": "Booth Anda",
+    "number": "Booth",
+    "hall": "Hall",
+    "block": "Blok",
+    "notAllocated": "Belum dialokasikan",
+    "notAllocatedBody": "Nomor booth diumumkan setelah proses alokasi selesai."
+  },
+  "error": {
+    "circleNameRequired": "Isi nama circle Anda.",
+    "penNameRequired": "Isi nama pena Anda.",
+    "emailInvalid": "Masukkan alamat email yang valid.",
+    "cutTooLarge": "Ukuran file lebih dari 2 MB.",
+    "cutWrongType": "Unggah file PNG atau JPG.",
+    "alreadyApplied": "Anda sudah mendaftar untuk acara ini."
+  }
+}

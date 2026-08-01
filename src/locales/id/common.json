@@ -1,0 +1,142 @@
+{
+  "app": {
+    "name": "DoujinDesk",
+    "tagline": "Manajemen acara doujin dan komik"
+  },
+  "nav": {
+    "group": {
+      "event": "Acara",
+      "operations": "Operasional",
+      "money": "Keuangan"
+    },
+    "dashboard": "Dasbor",
+    "circles": "Circle",
+    "booths": "Booth",
+    "tickets": "Tiket",
+    "schedule": "Jadwal",
+    "staff": "Staf",
+    "scanner": "Pemindai",
+    "announcements": "Pengumuman",
+    "finance": "Keuangan",
+    "catalog": "Katalog",
+    "map": "Denah lokasi",
+    "guide": "Panduan",
+    "myTickets": "Tiket saya",
+    "myApplication": "Pendaftaran saya"
+  },
+  "shell": {
+    "menu": "Menu",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu",
+    "search": "Cari",
+    "searchPlaceholder": "Cari circle, booth, atau tiket",
+    "language": "Bahasa",
+    "theme": "Tema",
+    "themeLight": "Terang",
+    "themeDark": "Gelap",
+    "themeSystem": "Ikuti sistem",
+    "account": "Akun",
+    "profile": "Profil",
+    "settings": "Pengaturan",
+    "skipToContent": "Lompat ke konten",
+    "updateAvailable": "Versi baru tersedia",
+    "reload": "Muat ulang"
+  },
+  "event": {
+    "switcher": "Ganti acara",
+    "current": "Acara aktif",
+    "upcoming": "Akan datang",
+    "past": "Sudah selesai",
+    "create": "Buat acara",
+    "none": "Belum ada acara dipilih"
+  },
+  "role": {
+    "organizer": "Panitia",
+    "staff": "Staf",
+    "circle": "Circle",
+    "attendee": "Pengunjung"
+  },
+  "action": {
+    "save": "Simpan",
+    "saveDraft": "Simpan draf",
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "close": "Tutup",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "submit": "Kirim",
+    "retry": "Coba lagi",
+    "refresh": "Muat ulang",
+    "undo": "Batalkan",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "export": "Ekspor CSV",
+    "filter": "Filter",
+    "clearFilters": "Hapus filter",
+    "reset": "Atur ulang",
+    "viewAll": "Lihat semua",
+    "selectAll": "Pilih semua",
+    "signIn": "Masuk",
+    "signOut": "Keluar"
+  },
+  "status": {
+    "loading": "Memuat",
+    "saving": "Menyimpan",
+    "saved": "Tersimpan",
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Menyinkronkan",
+    "draft": "Draf",
+    "pending": "Menunggu",
+    "underReview": "Sedang ditinjau",
+    "approved": "Diterima",
+    "waitlisted": "Daftar tunggu",
+    "rejected": "Ditolak",
+    "paid": "Lunas",
+    "unpaid": "Belum bayar",
+    "refunded": "Dikembalikan",
+    "cancelled": "Dibatalkan"
+  },
+  "empty": {
+    "noData": {
+      "title": "Belum ada apa-apa di sini",
+      "description": "Begitu ada data, semuanya muncul di sini."
+    },
+    "noResults": {
+      "title": "Tidak ada hasil",
+      "description": "Coba ubah filter atau kata pencarian Anda."
+    },
+    "offline": {
+      "title": "Anda sedang offline",
+      "description": "Periksa kuota data atau WiFi lokasi acara. Antrean akan dikirim begitu koneksi kembali."
+    }
+  },
+  "error": {
+    "generic": "Terjadi kesalahan.",
+    "network": "Tidak dapat menghubungi server.",
+    "notFound": "Tidak ditemukan.",
+    "forbidden": "Anda tidak punya akses ke sini.",
+    "unauthorized": "Masuk dulu untuk melanjutkan.",
+    "conflict": "Orang lain mengubahnya lebih dulu. Muat ulang lalu coba lagi.",
+    "tryAgain": "Coba lagi"
+  },
+  "count": {
+    "selected_other": "{{count}} dipilih",
+    "result_other": "{{count}} hasil"
+  },
+  "day": {
+    "day1": "Hari 1",
+    "day2": "Hari 2",
+    "both": "Dua hari",
+    "today": "Hari ini",
+    "tomorrow": "Besok"
+  },
+  "language": {
+    "label": "Bahasa",
+    "en": "English",
+    "ja": "日本語",
+    "id": "Bahasa Indonesia"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "title": "Katalog circle",
+  "subtitle": "Jelajahi semua circle di acara ini.",
+  "searchPlaceholder": "Cari nama circle, nama pena, atau kode booth",
+  "filter": {
+    "title": "Filter",
+    "genre": "Genre",
+    "fandom": "Fandom",
+    "rating": "Rating",
+    "day": "Hari",
+    "hall": "Hall",
+    "block": "Blok",
+    "onlineShop": "Punya toko online",
+    "apply": "Tampilkan hasil",
+    "clear": "Hapus semua"
+  },
+  "sort": {
+    "label": "Urutkan",
+    "booth": "Kode booth",
+    "name": "Nama circle",
+    "reading": "Cara baca (kana)",
+    "newest": "Terbaru"
+  },
+  "card": {
+    "booth": "Booth",
+    "noBooth": "Booth belum ada",
+    "penName": "PN",
+    "r18Hidden": "R18 — ketuk untuk melihat",
+    "r18Reveal": "Tampilkan konten R18"
+  },
+  "detail": {
+    "about": "Tentang",
+    "works": "Karya",
+    "links": "Tautan",
+    "showOnMap": "Lihat di denah",
+    "sample": "Contoh karya"
+  },
+  "map": {
+    "title": "Denah lokasi",
+    "legend": "Keterangan",
+    "you": "Posisi Anda",
+    "selectBooth": "Pilih booth",
+    "zoomIn": "Perbesar",
+    "zoomOut": "Perkecil",
+    "reset": "Atur ulang tampilan"
+  },
+  "schedule": {
+    "title": "Jadwal",
+    "allDay": "Sepanjang hari",
+    "stage": "Panggung",
+    "noEvents": "Belum ada acara terjadwal untuk hari ini."
+  },
+  "ticket": {
+    "title": "Tiket",
+    "tier": "Jenis tiket",
+    "price": "Harga",
+    "fees": "termasuk biaya {{amount}}",
+    "quantity": "Jumlah",
+    "soldOut": "Habis",
+    "remaining_other": "sisa {{count}}",
+    "salesEnd": "Penjualan berakhir {{date}}",
+    "total": "Total",
+    "checkout": "Bayar",
+    "processing": "Memproses",
+    "success": "Tiket berhasil dibeli",
+    "wallet": "Dompet tiket",
+    "showQr": "Tampilkan QR",
+    "used": "Terpakai",
+    "usedAt": "Dipakai {{time}}"
+  }
+}

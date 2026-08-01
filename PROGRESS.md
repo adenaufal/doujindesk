@@ -129,6 +129,38 @@ and `P16-hardening` restructure this file.
     schema: `scan_type = 'reentry'` sits outside the partial index. Never drop
     the index — that restores double-admission with no error anywhere.
 
+- `P15-i18n` — `src/lib/i18n.ts` initialises i18next + react-i18next with
+  `fallbackLng: 'en'`, six route namespaces (`common`, `auth`, `circle`,
+  `scanner`, `catalog`, `organizer`) and 18 seeded JSON files under
+  `src/locales/{en,ja,id}/`. No language detector and no HTTP backend:
+  `navigator.language.split('-')[0]` with a `doujindesk.locale` localStorage
+  override is the detector, and `import.meta.glob` is the backend — `en` eager
+  (it is the fallback and the first paint), ja/id lazy, so the build emits 12
+  separate locale chunks and a JA bundle never reaches an EN user. A
+  `languageChanged` listener writes `document.documentElement.lang`, which
+  `index.html` hardcodes to `en` and which is what selects the right regional
+  glyph variants for shared Han characters and tells a screen reader which voice
+  to use. `setLocale()` loads bundles *before* switching, persists to
+  localStorage, and best-effort echoes to `profiles.locale` (lazy-imported
+  Supabase, every failure swallowed — signed out, offline, or 002 not applied)
+  so the preference follows a staffer to the phone at the door.
+  `LanguageSwitcher.tsx` is a `ui/select` with `min-h-11`, an `aria-label`, and
+  `lang=` per option. 8 assertions in `src/lib/i18n.test.ts`, including a key-set
+  equality check across all three locales for **every** namespace — that is the
+  test that fails when a Wave 5 package adds an `en` key and forgets ja/id, which
+  would render the raw key on a Japanese screen.
+  - **Furigana is not a translation** — a comment at the top of `i18n.ts` says so
+    at length, because `circle_name_furigana` sits next to `circle_name` and
+    invites the mistake. It is a kana reading aid for sort order (P6 index) and
+    kana search (P13 query), stored per circle. Never an i18next key.
+  - Plural keys deliberately differ per locale: `en` carries `_one`/`_other`,
+    `ja` and `id` carry `_other` only, because `Intl.PluralRules` gives those two
+    a single category. The key-set test strips the suffix before comparing.
+  - Where a translation was uncertain the English string was **not** left in
+    place — all three locales are fully written. Owner should still have a native
+    JA/ID reader review the JSON; the risk is register (お/敬語 level, formal vs
+    casual ID), not correctness.
+
 ## In progress
 
 - Wave 1 — `P2-rls-foundation`, `P3-platform`, `P7-design-system`
@@ -158,6 +190,13 @@ and `P16-hardening` restructure this file.
 Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
 rather than an implementation.
 
+- `.gitignore` line 128 is a blanket `auth.json` (meant for composer/npm
+  credential files) and it silently ate `src/locales/{en,ja,id}/auth.json` — they
+  are tracked now only because P15 used `git add -f`. `config.json`,
+  `secrets.json` and `credentials.json` on lines 126–129 are the same trap for any
+  future source file. The fix is anchoring them (`/auth.json`), which lives in
+  `.gitignore` — P1's file, so left alone here. Run
+  `git status --ignored --short src/` after adding source files until it lands.
 - Staff shift scheduling — outside the scope fence.
 - Incident tracking — outside the scope fence.
 - Staff performance metrics — outside the scope fence.

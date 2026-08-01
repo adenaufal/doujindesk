@@ -1,0 +1,144 @@
+{
+  "app": {
+    "name": "DoujinDesk",
+    "tagline": "Convention management for doujin and comic events"
+  },
+  "nav": {
+    "group": {
+      "event": "Event",
+      "operations": "Operations",
+      "money": "Money"
+    },
+    "dashboard": "Dashboard",
+    "circles": "Circles",
+    "booths": "Booths",
+    "tickets": "Tickets",
+    "schedule": "Schedule",
+    "staff": "Staff",
+    "scanner": "Scanner",
+    "announcements": "Announcements",
+    "finance": "Finance",
+    "catalog": "Catalog",
+    "map": "Floor map",
+    "guide": "Guide",
+    "myTickets": "My tickets",
+    "myApplication": "My application"
+  },
+  "shell": {
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "search": "Search",
+    "searchPlaceholder": "Search circles, booths, tickets",
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "account": "Account",
+    "profile": "Profile",
+    "settings": "Settings",
+    "skipToContent": "Skip to content",
+    "updateAvailable": "A new version is available",
+    "reload": "Reload"
+  },
+  "event": {
+    "switcher": "Switch event",
+    "current": "Current event",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "create": "Create event",
+    "none": "No event selected"
+  },
+  "role": {
+    "organizer": "Organizer",
+    "staff": "Staff",
+    "circle": "Circle",
+    "attendee": "Attendee"
+  },
+  "action": {
+    "save": "Save",
+    "saveDraft": "Save draft",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "undo": "Undo",
+    "copy": "Copy",
+    "copied": "Copied",
+    "export": "Export CSV",
+    "filter": "Filters",
+    "clearFilters": "Clear filters",
+    "reset": "Reset",
+    "viewAll": "View all",
+    "selectAll": "Select all",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "status": {
+    "loading": "Loading",
+    "saving": "Saving",
+    "saved": "Saved",
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Syncing",
+    "draft": "Draft",
+    "pending": "Pending",
+    "underReview": "Under review",
+    "approved": "Approved",
+    "waitlisted": "Waitlisted",
+    "rejected": "Rejected",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "refunded": "Refunded",
+    "cancelled": "Cancelled"
+  },
+  "empty": {
+    "noData": {
+      "title": "Nothing here yet",
+      "description": "Once there is data to show, it appears here."
+    },
+    "noResults": {
+      "title": "No results found",
+      "description": "Try changing your filters or adjusting your search."
+    },
+    "offline": {
+      "title": "You are offline",
+      "description": "Check your mobile data or the venue WiFi. Anything you queue is sent when the connection returns."
+    }
+  },
+  "error": {
+    "generic": "Something went wrong.",
+    "network": "Could not reach the server.",
+    "notFound": "Not found.",
+    "forbidden": "You do not have access to this.",
+    "unauthorized": "Please sign in to continue.",
+    "conflict": "Someone else changed this first. Reload and try again.",
+    "tryAgain": "Try again"
+  },
+  "count": {
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "result_one": "{{count}} result",
+    "result_other": "{{count}} results"
+  },
+  "day": {
+    "day1": "Day 1",
+    "day2": "Day 2",
+    "both": "Both days",
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ja": "日本語",
+    "id": "Bahasa Indonesia"
+  }
+}

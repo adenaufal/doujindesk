@@ -1,0 +1,96 @@
+{
+  "dashboard": {
+    "title": "ダッシュボード",
+    "applications": "申込数",
+    "boothsAllocated": "配置済みブース",
+    "ticketsSold": "チケット販売数",
+    "checkedIn": "入場者数",
+    "revenue": "売上"
+  },
+  "review": {
+    "title": "サークル申込",
+    "tab": {
+      "pending": "審査待ち",
+      "approved": "当選",
+      "waitlist": "補欠",
+      "rejected": "落選"
+    },
+    "column": {
+      "circle": "サークル",
+      "genre": "ジャンル",
+      "boothPreference": "希望スペース",
+      "payment": "入金",
+      "submitted": "申込日時"
+    },
+    "approve": "当選にする",
+    "waitlist": "補欠にする",
+    "reject": "落選にする",
+    "rejectReason": "落選の理由",
+    "rejectReasonRequired": "理由を入力してください。サークルに表示されます。",
+    "bulkConfirm_other": "{{count}}件を当選にしますか？",
+    "bulkConfirmBody": "当選したサークルは配置対象になります。",
+    "inspector": "申込詳細"
+  },
+  "booth": {
+    "title": "ブース配置",
+    "unallocated": "未配置",
+    "allocated": "配置済み",
+    "assign": "ブースを割り当てる",
+    "unassign": "割り当てを解除",
+    "conflict": "そのブースは既に{{circle}}が使用しています。",
+    "editor": "会場図エディタ",
+    "addBooth": "ブースを追加",
+    "gridSnap": "グリッドに合わせる",
+    "saveLayout": "配置を保存"
+  },
+  "finance": {
+    "title": "会計",
+    "circleFees": "サークル参加費",
+    "ticketRevenue": "チケット売上",
+    "refunds": "返金",
+    "net": "純額",
+    "period": "期間",
+    "column": {
+      "date": "日付",
+      "type": "種別",
+      "payer": "支払者",
+      "method": "決済方法",
+      "amount": "金額",
+      "reference": "参照番号"
+    },
+    "type": {
+      "circleFee": "参加費",
+      "ticketSale": "チケット",
+      "refund": "返金"
+    },
+    "total": "合計",
+    "ledgerNote": "この画面の金額はすべて取引明細の集計です。"
+  },
+  "staff": {
+    "title": "スタッフ",
+    "invite": "スタッフを招待",
+    "role": "権限",
+    "tasks": "タスク",
+    "addTask": "タスクを追加",
+    "assignee": "担当者",
+    "due": "期限",
+    "done": "完了",
+    "open": "未完了"
+  },
+  "announcement": {
+    "title": "お知らせ",
+    "compose": "新規のお知らせ",
+    "subject": "件名",
+    "body": "本文",
+    "audience": "配信先",
+    "publish": "公開",
+    "published": "{{date}} に公開",
+    "draft": "下書き"
+  },
+  "queue": {
+    "title": "待機列",
+    "waiting": "待機中",
+    "insideVenue": "入場中",
+    "throughput": "1時間あたり"
+  }
+}

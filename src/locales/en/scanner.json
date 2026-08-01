@@ -1,0 +1,63 @@
+{
+  "title": "Ticket scanner",
+  "hint": "Align the QR code in the frame",
+  "torch": "Torch",
+  "manualEntry": "Enter ticket ID",
+  "manualEntryTitle": "Enter ticket ID",
+  "manualEntryPlaceholder": "Ticket ID",
+  "manualEntrySubmit": "Check in",
+  "exit": "Close scanner",
+  "sync": {
+    "online": "Online",
+    "offline": "Offline",
+    "queued_one": "Offline · {{count}} queued",
+    "queued_other": "Offline · {{count}} queued",
+    "syncing": "Syncing {{count}}",
+    "synced": "All scans synced",
+    "failed": "{{count}} scans could not sync"
+  },
+  "result": {
+    "valid": "Checked in",
+    "queued": "Queued offline",
+    "queuedBody": "This ticket is verified when the connection returns.",
+    "duplicate": "Already used",
+    "duplicateBody": "Scanned {{time}} by {{staff}}.",
+    "invalid": "Invalid ticket",
+    "invalidBody": "This code is not a ticket for this event.",
+    "wrongEvent": "Wrong event",
+    "wrongEventBody": "This ticket belongs to another event.",
+    "wrongDay": "Wrong day",
+    "wrongDayBody": "This ticket is valid on {{day}}.",
+    "refunded": "Refunded ticket",
+    "refundedBody": "This ticket was refunded and cannot be admitted.",
+    "undo": "Undo check-in",
+    "undone": "Check-in undone",
+    "dismiss": "Dismiss"
+  },
+  "ticket": {
+    "holder": "Holder",
+    "tier": "Ticket type",
+    "id": "Ticket ID",
+    "purchasedAt": "Purchased",
+    "scannedAt": "Checked in"
+  },
+  "conflict": {
+    "title": "Sync conflict",
+    "body_one": "{{count}} ticket was already used elsewhere and was not admitted.",
+    "body_other": "{{count}} tickets were already used elsewhere and were not admitted.",
+    "review": "Review conflicts",
+    "resolved": "Marked as reviewed"
+  },
+  "camera": {
+    "requesting": "Requesting camera access",
+    "denied": "Camera access denied",
+    "deniedBody": "Allow camera access in your browser settings, or enter ticket IDs by hand.",
+    "unavailable": "No camera found",
+    "unavailableBody": "This device has no usable camera. Enter ticket IDs by hand."
+  },
+  "counter": {
+    "admitted": "Admitted",
+    "session": "This session",
+    "capacity": "Capacity"
+  }
+}

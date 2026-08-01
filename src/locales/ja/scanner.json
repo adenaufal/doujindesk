@@ -1,0 +1,61 @@
+{
+  "title": "チケットスキャナー",
+  "hint": "QRコードを枠内に合わせてください",
+  "torch": "ライト",
+  "manualEntry": "チケットIDを入力",
+  "manualEntryTitle": "チケットIDを入力",
+  "manualEntryPlaceholder": "チケットID",
+  "manualEntrySubmit": "入場処理",
+  "exit": "スキャナーを閉じる",
+  "sync": {
+    "online": "オンライン",
+    "offline": "オフライン",
+    "queued_other": "オフライン・{{count}}件待機中",
+    "syncing": "{{count}}件を同期中",
+    "synced": "すべて同期済み",
+    "failed": "{{count}}件の同期に失敗しました"
+  },
+  "result": {
+    "valid": "入場を受け付けました",
+    "queued": "オフラインで受付",
+    "queuedBody": "接続が戻り次第、このチケットを照合します。",
+    "duplicate": "使用済みです",
+    "duplicateBody": "{{time}} に {{staff}} が読み取り済みです。",
+    "invalid": "無効なチケット",
+    "invalidBody": "このコードはこのイベントのチケットではありません。",
+    "wrongEvent": "イベントが違います",
+    "wrongEventBody": "このチケットは別のイベントのものです。",
+    "wrongDay": "日付が違います",
+    "wrongDayBody": "このチケットは{{day}}に有効です。",
+    "refunded": "返金済みのチケット",
+    "refundedBody": "返金済みのため入場できません。",
+    "undo": "入場を取り消す",
+    "undone": "入場を取り消しました",
+    "dismiss": "閉じる"
+  },
+  "ticket": {
+    "holder": "購入者",
+    "tier": "チケット種別",
+    "id": "チケットID",
+    "purchasedAt": "購入日時",
+    "scannedAt": "入場日時"
+  },
+  "conflict": {
+    "title": "同期の競合",
+    "body_other": "{{count}}件のチケットは別の場所で使用済みだったため、入場は取り消されました。",
+    "review": "競合を確認",
+    "resolved": "確認済みにしました"
+  },
+  "camera": {
+    "requesting": "カメラの使用許可を確認しています",
+    "denied": "カメラへのアクセスが拒否されました",
+    "deniedBody": "ブラウザの設定でカメラを許可するか、チケットIDを手入力してください。",
+    "unavailable": "カメラが見つかりません",
+    "unavailableBody": "この端末では使用できるカメラがありません。チケットIDを手入力してください。"
+  },
+  "counter": {
+    "admitted": "入場者数",
+    "session": "この端末",
+    "capacity": "収容上限"
+  }
+}

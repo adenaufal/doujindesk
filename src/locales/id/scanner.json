@@ -1,0 +1,61 @@
+{
+  "title": "Pemindai tiket",
+  "hint": "Posisikan kode QR di dalam bingkai",
+  "torch": "Senter",
+  "manualEntry": "Masukkan ID tiket",
+  "manualEntryTitle": "Masukkan ID tiket",
+  "manualEntryPlaceholder": "ID tiket",
+  "manualEntrySubmit": "Check-in",
+  "exit": "Tutup pemindai",
+  "sync": {
+    "online": "Online",
+    "offline": "Offline",
+    "queued_other": "Offline · {{count}} dalam antrean",
+    "syncing": "Menyinkronkan {{count}}",
+    "synced": "Semua pindaian tersinkron",
+    "failed": "{{count}} pindaian gagal disinkronkan"
+  },
+  "result": {
+    "valid": "Check-in berhasil",
+    "queued": "Masuk antrean offline",
+    "queuedBody": "Tiket ini diverifikasi begitu koneksi kembali.",
+    "duplicate": "Sudah dipakai",
+    "duplicateBody": "Dipindai {{time}} oleh {{staff}}.",
+    "invalid": "Tiket tidak valid",
+    "invalidBody": "Kode ini bukan tiket untuk acara ini.",
+    "wrongEvent": "Salah acara",
+    "wrongEventBody": "Tiket ini milik acara lain.",
+    "wrongDay": "Salah hari",
+    "wrongDayBody": "Tiket ini berlaku pada {{day}}.",
+    "refunded": "Tiket sudah direfund",
+    "refundedBody": "Tiket ini sudah dikembalikan dananya dan tidak bisa masuk.",
+    "undo": "Batalkan check-in",
+    "undone": "Check-in dibatalkan",
+    "dismiss": "Tutup"
+  },
+  "ticket": {
+    "holder": "Pemegang",
+    "tier": "Jenis tiket",
+    "id": "ID tiket",
+    "purchasedAt": "Dibeli",
+    "scannedAt": "Check-in"
+  },
+  "conflict": {
+    "title": "Konflik sinkronisasi",
+    "body_other": "{{count}} tiket ternyata sudah dipakai di tempat lain dan tidak jadi diloloskan.",
+    "review": "Tinjau konflik",
+    "resolved": "Ditandai sudah ditinjau"
+  },
+  "camera": {
+    "requesting": "Meminta izin kamera",
+    "denied": "Akses kamera ditolak",
+    "deniedBody": "Izinkan kamera di pengaturan browser, atau masukkan ID tiket secara manual.",
+    "unavailable": "Kamera tidak ditemukan",
+    "unavailableBody": "Perangkat ini tidak punya kamera yang bisa dipakai. Masukkan ID tiket secara manual."
+  },
+  "counter": {
+    "admitted": "Sudah masuk",
+    "session": "Sesi ini",
+    "capacity": "Kapasitas"
+  }
+}

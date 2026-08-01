@@ -1,0 +1,71 @@
+{
+  "title": "サークルカタログ",
+  "subtitle": "このイベントの参加サークル一覧です。",
+  "searchPlaceholder": "サークル名・ペンネーム・配置番号で検索",
+  "filter": {
+    "title": "絞り込み",
+    "genre": "ジャンル",
+    "fandom": "ジャンル詳細",
+    "rating": "対象年齢",
+    "day": "開催日",
+    "hall": "ホール",
+    "block": "ブロック",
+    "onlineShop": "通販あり",
+    "apply": "結果を表示",
+    "clear": "すべて解除"
+  },
+  "sort": {
+    "label": "並び順",
+    "booth": "配置番号",
+    "name": "サークル名",
+    "reading": "五十音順",
+    "newest": "新着順"
+  },
+  "card": {
+    "booth": "配置",
+    "noBooth": "配置未定",
+    "penName": "PN",
+    "r18Hidden": "R18 — タップで表示",
+    "r18Reveal": "R18の内容を表示"
+  },
+  "detail": {
+    "about": "紹介",
+    "works": "頒布物",
+    "links": "リンク",
+    "showOnMap": "マップで表示",
+    "sample": "サンプル"
+  },
+  "map": {
+    "title": "会場マップ",
+    "legend": "凡例",
+    "you": "現在地",
+    "selectBooth": "ブースを選択",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "reset": "表示をリセット"
+  },
+  "schedule": {
+    "title": "スケジュール",
+    "allDay": "終日",
+    "stage": "ステージ",
+    "noEvents": "この日の予定はまだありません。"
+  },
+  "ticket": {
+    "title": "チケット",
+    "tier": "チケット種別",
+    "price": "価格",
+    "fees": "手数料{{amount}}を含む",
+    "quantity": "枚数",
+    "soldOut": "完売",
+    "remaining_other": "残り{{count}}枚",
+    "salesEnd": "販売終了：{{date}}",
+    "total": "合計",
+    "checkout": "購入手続きへ",
+    "processing": "処理中",
+    "success": "チケットを購入しました",
+    "wallet": "チケット一覧",
+    "showQr": "QRを表示",
+    "used": "使用済み",
+    "usedAt": "{{time}} に使用"
+  }
+}
