@@ -160,6 +160,54 @@ and `P16-hardening` restructure this file.
     place — all three locales are fully written. Owner should still have a native
     JA/ID reader review the JSON; the risk is register (お/敬語 level, formal vs
     casual ID), not correctness.
+- `P5-money-core` — wrote `supabase/migrations/004_money.sql` and `src/lib/money.ts`.
+  Criterion 4 in three mechanisms: (1) `financial_transactions_immutable()`, a
+  `BEFORE UPDATE OR DELETE` trigger that unconditionally raises — RLS does not
+  constrain the table owner or the service role the payment webhook uses, a trigger
+  does; (2) ledger rows are INSERTed only by `AFTER UPDATE` triggers on `circles`
+  and `ticket_purchases` that fire on a `payment_status` transition, with no INSERT
+  policy and no INSERT grant for anon or authenticated anywhere in the schema;
+  (3) `event_financial_summary`, a `security_invoker` view the dashboard reads
+  instead of reducing rows in a component. Refunds are reversing `debit` entries
+  carrying `reverses_transaction_id`, never edits. Also: `purchase_tickets()` reads
+  price out of `tickets` server-side and does its oversell guard in one
+  `UPDATE … WHERE quantity_sold + n <= quantity_available RETURNING`, so two buyers
+  for the last seat serialise on the row lock; a `BEFORE INSERT OR UPDATE` trigger
+  on `circles` recomputes `total_amount` from a new `event_pricing` sheet and
+  discards whatever the browser sent; every money column widened off 001's
+  `DECIMAL(10,2)` (Rp 99,999,999.99 — under USD 6,500, i.e. one mid-sized event's
+  gate). `src/lib/money.ts` is the only place an amount becomes a string: currency
+  is event-scoped, locale is user-scoped, and they are never coupled.
+  - **Verified by execution, not by reading.** 001 → 002 → a stub 003 → 004 were
+    applied to a throwaway local `postgres:15` container (never the live project)
+    and exercised: server-side pricing, oversell rejection, one pass per head,
+    trigger-written ledger row, `UPDATE`/`DELETE` on the ledger both blocked,
+    a circle owner's `total_amount = 0` tamper overwritten to the derived 675,000,
+    refund posting a reversing debit, and `event_financial_summary` netting
+    correctly. Under `SET ROLE authenticated` an attendee sees **0** ledger rows and
+    **0** summary rows while the organizer sees 3 of each — `security_invoker` is
+    doing its job.
+  - **Deviation from the plan, deliberate:** the plan asked for a `status` column on
+    `ticket_purchases` with the domain `('pending','paid','cancelled','refunded')`.
+    001 already ships `payment_status` with exactly that domain. Two columns holding
+    one state diverge, and when they do the ledger trigger fires on one while the UI
+    reads the other — a silent accounting bug. **`payment_status` is the canonical
+    order state; downstream packages write that, not `status`.**
+  - **Second deviation:** the plan asked to `REVOKE UPDATE (quantity_sold, price)`.
+    `quantity_sold` is revoked (re-issued as a per-column grant, since Postgres
+    cannot subtract a column from a table-wide grant). `price` is deliberately left
+    grantable: column grants apply to every `authenticated` role including
+    organizers, so revoking it would leave the tier editor with no door while
+    closing nothing — `tickets_write_organizer` already restricts every UPDATE to
+    organizers and `purchase_tickets()` never reads a client price.
+  - **Consequence the owner should know:** `authenticated` has no UPDATE grant on
+    `ticket_purchases` at all, so nothing in the browser can move an order to
+    `paid`. That transition belongs to P11's payment webhook on the service role.
+    Until that lands, an order can only be marked paid from the SQL editor.
+  - **Consequence #2:** the immutability trigger also blocks `DELETE`, including via
+    `ON DELETE CASCADE`. An event that has taken money can no longer be deleted —
+    retire it with `events.status = 'cancelled'`. This is intended; the ledger is
+    the point.
 
 ## In progress
 
