@@ -1,728 +1,518 @@
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { useState } from 'react'
+import { ClipboardList, Plus, UserPlus, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Badge } from './ui/badge'
+import { Async, Page, PageHeader } from '@/components/ops'
+import { initials, useDateTime } from '@/lib/format'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  useInviteStaff,
+  useSaveTask,
+  useSetStaffStatus,
+  useSetTaskStatus,
+  useStaff,
+  useStaffTasks,
+} from '@/lib/queries'
+import type { StaffRole, StaffRow, StaffStatus, StaffTaskRow, TaskPriority } from '@/lib/database.types'
+import { useAuthStore } from '@/stores/authStore'
 
-import { ScrollArea } from './ui/scroll-area'
-
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-// import { useToast } from '../hooks/use-toast'
-import { useStaffStore, type StaffMember } from '../stores/staffStore'
-import { 
-  MessageSquare, Send, Plus, Edit, Eye, Users, ClipboardList, 
-  Calendar, AlertTriangle, Settings, UserPlus
-} from 'lucide-react'
-
-const StaffCoordination: React.FC = () => {
-  // const { toast } = useToast() // unused
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const {
-    staffMembers,
-    tasks,
-    shifts,
-    incidents,
-    messages,
-    sendMessage
-  } = useStaffStore()
-  const [currentUser] = useState<StaffMember>({
-    id: 'current-user',
-    name: 'Admin User',
-    email: 'admin@doujindesk.com',
-    role: 'Admin',
-    department: 'Management',
-    status: 'Active',
-    joinDate: '2025-01-01',
-    skills: ['Management', 'Coordination'],
-    certifications: ['Event Management'],
-    permissions: ['all']
-  })
-
-  // Helper functions for filtering and searching
-  const [staffFilter, setStaffFilter] = useState('all')
-  const [taskFilter, setTaskFilter] = useState('all')
-  const [scheduleFilter, setScheduleFilter] = useState('all')
-  const [incidentFilter, setIncidentFilter] = useState('all')
-  const [selectedChannel, setSelectedChannel] = useState<'General' | 'Security' | 'Operations' | 'Emergency' | 'Management'>('General')
-  const [newMessage, setNewMessage] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-
-  // Filter functions
-  const filteredStaff = staffMembers.filter(staff => {
-    const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         staff.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = staffFilter === 'all' || staff.role.toLowerCase().replace(' ', '') === staffFilter
-    return matchesSearch && matchesFilter
-  })
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = taskFilter === 'all' || task.status.toLowerCase().replace(' ', '') === taskFilter
-    return matchesSearch && matchesFilter
-  })
-
-  const filteredShifts = shifts.filter(shift => {
-    const matchesFilter = scheduleFilter === 'all' || shift.position.toLowerCase().includes(scheduleFilter.toLowerCase())
-    return matchesFilter
-  })
-
-  const filteredIncidents = incidents.filter(incident => {
-    const matchesSearch = incident.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         incident.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = incidentFilter === 'all' || incident.severity.toLowerCase() === incidentFilter
-    return matchesSearch && matchesFilter
-  })
-
-  const filteredMessages = messages.filter(message => 
-    message.channel === selectedChannel
-  )
-
-  // Event handlers
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      sendMessage({
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        channel: selectedChannel as 'General' | 'Security' | 'Operations' | 'Emergency' | 'Management',
-        content: newMessage,
-        priority: 'Normal'
-      })
-      setNewMessage('')
-    }
-  }
-
-  const handleAddStaff = () => {
-    // This would open a modal or form for adding new staff
-    console.log('Add staff functionality')
-  }
-
-  const handleAddTask = () => {
-    // This would open a modal or form for adding new task
-    console.log('Add task functionality')
-  }
-
-  const handleAddShift = () => {
-    // This would open a modal or form for adding new shift
-    console.log('Add shift functionality')
-  }
-
-  const handleReportIncident = () => {
-    // This would open a modal or form for reporting incident
-    console.log('Report incident functionality')
-  }
-
-  // Helper functions for dashboard statistics
-  const getActiveStaff = () => {
-    return staffMembers.filter(staff => staff.status === 'Active')
-  }
-
-  const getActiveTasks = () => {
-    return tasks.filter(task => task.status === 'In Progress' || task.status === 'Pending')
-  }
-
-  const getTodayShifts = () => {
-    const today = new Date().toISOString().split('T')[0]
-    return shifts.filter(shift => shift.date === today)
-  }
-
-  const getOpenIncidents = () => {
-    return incidents.filter(incident => incident.status === 'Open' || incident.status === 'In Progress')
-  }
-
-  // Dashboard statistics
-  const dashboardStats = {
-    totalStaff: staffMembers.length,
-    activeStaff: getActiveStaff().length,
-    activeTasks: getActiveTasks().length,
-    todayShifts: getTodayShifts().length,
-    openIncidents: getOpenIncidents().length
-  }
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'Admin': return 'bg-red-100 text-red-800'
-      case 'Staff Manager': return 'bg-blue-100 text-blue-800'
-      case 'Staff Member': return 'bg-green-100 text-green-800'
-      case 'Volunteer': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Critical': return 'bg-red-100 text-red-800'
-      case 'High': return 'bg-orange-100 text-orange-800'
-      case 'Medium': return 'bg-yellow-100 text-yellow-800'
-      case 'Low': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed': case 'Resolved': case 'Confirmed': return 'bg-green-100 text-green-800'
-      case 'In Progress': case 'Open': return 'bg-blue-100 text-blue-800'
-      case 'Pending': case 'Scheduled': return 'bg-yellow-100 text-yellow-800'
-      case 'Cancelled': case 'Closed': case 'No Show': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const StaffDashboard = () => (
-    <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats.totalStaff}</div>
-            <p className="text-xs text-muted-foreground">
-              {dashboardStats.activeStaff} active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboardStats.activeTasks}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {tasks.filter(t => t.priority === 'Critical' || t.priority === 'High').length} high priority
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Shifts</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboardStats.todayShifts}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {shifts.filter(s => s.date === '2025-03-15' && s.status === 'Confirmed').length} confirmed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Incidents</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboardStats.openIncidents}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {incidents.filter(i => i.severity === 'Critical' || i.severity === 'High').length} high severity
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Tasks</CardTitle>
-            <CardDescription>Latest task assignments and updates</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              <div className="space-y-3">
-                {filteredTasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{task.title}</h4>
-                        <Badge className={getPriorityColor(task.priority)}>
-                          {task.priority}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Due: {new Date(task.dueDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge className={getStatusColor(task.status)}>
-                      {task.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Messages</CardTitle>
-            <CardDescription>Latest team communications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-64">
-              <div className="space-y-3">
-                {filteredMessages.slice(0, 5).map((message) => (
-                  <div key={message.id} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{message.senderName}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{message.channel}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm">{message.content}</p>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
+/**
+ * The organizer's view of who is working and what they are doing.
+ *
+ * Scoped to what the brief asks for: a roster and a task board. The Incidents
+ * and Messages tabs are gone — an internal chat system is explicitly outside the
+ * scope fence, and incident tracking with it (both recorded under Deferred in
+ * PROGRESS.md). `staff.status` values are the DB CHECK domain
+ * (`active|inactive|on_break`), not the store's Title Case.
+ *
+ * The staff-side companion is `src/pages/StaffTasks.tsx` at `/tasks`, which is
+ * phone-shaped and shows one person their own work.
+ */
+export default function StaffCoordination() {
+  const { t } = useTranslation(['organizer', 'common'])
+  const { eventId } = useParams()
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Staff Coordination</h1>
-          <p className="text-muted-foreground">
-            Manage staff, assignments, schedules, and team communication
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
-          <Button onClick={handleAddStaff}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Staff
-          </Button>
-        </div>
-      </div>
+    <Page>
+      <PageHeader title={t('staff.title')} description={t('staff.subtitle')} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
+      <Tabs defaultValue="roster" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="roster" className="coarse:min-h-11">
+            {t('staff.roster')}
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="coarse:min-h-11">
+            {t('staff.tasks')}
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard">
-          <StaffDashboard />
+        <TabsContent value="roster" className="mt-4">
+          <Roster eventId={eventId} />
         </TabsContent>
-
-        <TabsContent value="staff">
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Management</CardTitle>
-              <CardDescription>
-                Manage staff members, roles, and permissions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <Input 
-                      placeholder="Search staff..." 
-                      className="max-w-sm" 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <Select value={staffFilter} onValueChange={setStaffFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Filter by role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="staffmanager">Staff Manager</SelectItem>
-                      <SelectItem value="staffmember">Staff Member</SelectItem>
-                      <SelectItem value="volunteer">Volunteer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-4">
-                  {filteredStaff.map((staff) => (
-                    <Card key={staff.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={staff.avatar} alt={staff.name} />
-                              <AvatarFallback>
-                                {staff.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h3 className="font-medium">{staff.name}</h3>
-                              <p className="text-sm text-muted-foreground">{staff.email}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge className={getRoleColor(staff.role)}>
-                                  {staff.role}
-                                </Badge>
-                                <Badge variant="outline">{staff.department}</Badge>
-                                <Badge className={getStatusColor(staff.status)}>
-                                  {staff.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Management</CardTitle>
-              <CardDescription>
-                Assign and track tasks for staff members
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Input 
-                      placeholder="Search tasks..." 
-                      className="max-w-sm" 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <Select value={taskFilter} onValueChange={setTaskFilter}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="inprogress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleAddTask}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Task
-                  </Button>
-                </div>
-
-                <div className="grid gap-4">
-                  {filteredTasks.map((task) => (
-                    <Card key={task.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-medium">{task.title}</h3>
-                              <Badge className={getPriorityColor(task.priority)}>
-                                {task.priority}
-                              </Badge>
-                              <Badge className={getStatusColor(task.status)}>
-                                {task.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {task.description}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                              <span>Category: {task.category}</span>
-                              {task.location && <span>Location: {task.location}</span>}
-                              {task.estimatedHours && <span>Est: {task.estimatedHours}h</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="schedule">
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Schedule</CardTitle>
-              <CardDescription>
-                Manage staff shifts and scheduling
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Input type="date" className="max-w-sm" defaultValue="2025-03-15" />
-                    <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Filter by position" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Positions</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="security">Security</SelectItem>
-                        <SelectItem value="service">Customer Service</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleAddShift}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Shift
-                  </Button>
-                </div>
-
-                <div className="grid gap-4">
-                  {filteredShifts.map((shift) => {
-                    const staff = staffMembers.find(s => s.id === shift.staffId)
-                    return (
-                      <Card key={shift.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={staff?.avatar} alt={staff?.name} />
-                                <AvatarFallback>
-                                  {staff?.name.split(' ').map(n => n[0]).join('')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h3 className="font-medium">{staff?.name}</h3>
-                                <p className="text-sm text-muted-foreground">{shift.position}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline">{shift.location}</Badge>
-                                  <Badge className={getStatusColor(shift.status)}>
-                                    {shift.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-medium">
-                                {shift.startTime} - {shift.endTime}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {new Date(shift.date).toLocaleDateString()}
-                              </div>
-                              {shift.breakTime && (
-                                <div className="text-xs text-muted-foreground">
-                                  Break: {shift.breakTime}min
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="incidents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Incident Reports</CardTitle>
-              <CardDescription>
-                Track and manage incident reports
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Input 
-                      placeholder="Search incidents..." 
-                      className="max-w-sm" 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <Select value={incidentFilter} onValueChange={setIncidentFilter}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Filter by severity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Severity</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleReportIncident}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Report Incident
-                  </Button>
-                </div>
-
-                <div className="grid gap-4">
-                  {filteredIncidents.map((incident) => {
-                    const reporter = staffMembers.find(s => s.id === incident.reportedBy)
-                    return (
-                      <Card key={incident.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="font-medium">{incident.title}</h3>
-                                <Badge className={getPriorityColor(incident.severity)}>
-                                  {incident.severity}
-                                </Badge>
-                                <Badge className={getStatusColor(incident.status)}>
-                                  {incident.status}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {incident.description}
-                              </p>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Reporter: {reporter?.name}</span>
-                                <span>Category: {incident.category}</span>
-                                <span>Location: {incident.location}</span>
-                                <span>Time: {new Date(incident.timestamp).toLocaleString()}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="messages">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Communication</CardTitle>
-              <CardDescription>
-                Internal messaging and announcements
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Select value={selectedChannel} onValueChange={(value) => setSelectedChannel(value as 'General' | 'Security' | 'Operations' | 'Emergency' | 'Management')}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select channel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="General">General</SelectItem>
-                      <SelectItem value="Operations">Operations</SelectItem>
-                      <SelectItem value="Security">Security</SelectItem>
-                      <SelectItem value="Emergency">Emergency</SelectItem>
-                      <SelectItem value="Management">Management</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex-1">
-                    <Input 
-                      placeholder="Type your message..." 
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    />
-                  </div>
-                  <Button onClick={handleSendMessage}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <ScrollArea className="h-96">
-                  <div className="space-y-4">
-                    {filteredMessages.map((message) => (
-                      <Card key={message.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{message.senderName}</span>
-                              <Badge variant="outline">{message.channel}</Badge>
-                              {message.priority !== 'Normal' && (
-                                <Badge className={getPriorityColor(message.priority)}>
-                                  {message.priority}
-                                </Badge>
-                              )}
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(message.timestamp).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-sm">{message.content}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="tasks" className="mt-4">
+          <TaskBoard eventId={eventId} />
         </TabsContent>
       </Tabs>
-    </div>
+    </Page>
   )
 }
 
-export default StaffCoordination
+// ---------------------------------------------------------------------------
+// Roster
+// ---------------------------------------------------------------------------
+
+const STAFF_STATUSES: StaffStatus[] = ['active', 'on_break', 'inactive']
+const STAFF_ROLES: StaffRole[] = ['coordinator', 'scanner', 'volunteer', 'organizer']
+
+const STATUS_VARIANT: Record<StaffStatus, 'success' | 'warning' | 'outline'> = {
+  active: 'success',
+  on_break: 'warning',
+  inactive: 'outline',
+}
+
+function Roster({ eventId }: { eventId: string | undefined }) {
+  const { t } = useTranslation(['organizer', 'common'])
+  const roster = useStaff(eventId)
+  const setStatus = useSetStaffStatus(eventId ?? '')
+  const [inviteOpen, setInviteOpen] = useState(false)
+
+  const onDuty = roster.data.filter((member) => member.status === 'active').length
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {t('staff.onDuty', { count: onDuty, total: roster.data.length })}
+        </p>
+        <Button onClick={() => setInviteOpen(true)}>
+          <UserPlus className="size-4" aria-hidden="true" />
+          {t('staff.invite')}
+        </Button>
+      </div>
+
+      <div className="mt-3">
+        <Async
+          state={roster}
+          icon={Users}
+          emptyTitle={t('staff.rosterEmpty')}
+          emptyDescription={t('staff.rosterEmptyBody')}
+          emptyAction={<Button onClick={() => setInviteOpen(true)}>{t('staff.invite')}</Button>}
+        >
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            {roster.data.map((member) => (
+              <RosterRow
+                key={member.id}
+                member={member}
+                onStatus={(status) => setStatus.mutate({ id: member.id, status })}
+              />
+            ))}
+          </ul>
+        </Async>
+      </div>
+
+      <InviteDialog eventId={eventId} open={inviteOpen} onOpenChange={setInviteOpen} />
+    </>
+  )
+}
+
+function RosterRow({
+  member,
+  onStatus,
+}: {
+  member: StaffRow
+  onStatus: (status: StaffStatus) => void
+}) {
+  const { t } = useTranslation(['organizer', 'common'])
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 p-3 sm:p-4">
+      <Avatar className="size-9 shrink-0">
+        <AvatarFallback>{initials(member.name)}</AvatarFallback>
+      </Avatar>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-card-foreground">{member.name}</p>
+        <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Badge variant="outline">{t(`staff.roleOption.${member.role}`)}</Badge>
+          {member.assigned_zones?.length ? <span>{member.assigned_zones.join(' · ')}</span> : null}
+          {member.shift_start && member.shift_end ? (
+            <span className="tabular-nums">
+              {member.shift_start}–{member.shift_end}
+            </span>
+          ) : null}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant={STATUS_VARIANT[member.status]}>
+          {t(`staff.statusOption.${member.status}`)}
+        </Badge>
+        <Select value={member.status} onValueChange={(value) => onStatus(value as StaffStatus)}>
+          <SelectTrigger className="w-36 coarse:min-h-11" aria-label={t('staff.changeStatus')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STAFF_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {t(`staff.statusOption.${status}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </li>
+  )
+}
+
+function InviteDialog({
+  eventId,
+  open,
+  onOpenChange,
+}: {
+  eventId: string | undefined
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation(['organizer', 'common'])
+  const invite = useInviteStaff(eventId ?? '')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<StaffRole>('scanner')
+
+  const submit = (formEvent: React.FormEvent) => {
+    formEvent.preventDefault()
+    invite.mutate(
+      { email, role },
+      {
+        onSuccess: () => {
+          toast.success(t('staff.inviteAdded', { email }))
+          setEmail('')
+          onOpenChange(false)
+        },
+        onError: (error) =>
+          toast.error(
+            error.message === 'no-account' ? t('staff.inviteNoAccount') : t('common:error.generic'),
+          ),
+      },
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>{t('staff.invite')}</DialogTitle>
+            <DialogDescription>{t('staff.inviteHint')}</DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">{t('staff.inviteEmail')}</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="gate3@comicfrontier.id"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-role">{t('staff.role')}</Label>
+              <Select value={role} onValueChange={(value) => setRole(value as StaffRole)}>
+                <SelectTrigger id="invite-role" className="coarse:min-h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFF_ROLES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(`staff.roleOption.${value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common:action.cancel')}
+            </Button>
+            <Button type="submit" disabled={invite.isPending}>
+              {invite.isPending ? t('common:status.saving') : t('staff.invite')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
+
+const PRIORITY_VARIANT: Record<TaskPriority, 'danger' | 'warning' | 'info' | 'outline'> = {
+  critical: 'danger',
+  high: 'warning',
+  medium: 'info',
+  low: 'outline',
+}
+
+function TaskBoard({ eventId }: { eventId: string | undefined }) {
+  const { t } = useTranslation(['organizer', 'common'])
+  const userId = useAuthStore((s) => s.user?.id)
+  const tasks = useStaffTasks(eventId)
+  const roster = useStaff(eventId)
+  const setStatus = useSetTaskStatus(userId)
+  const [composeOpen, setComposeOpen] = useState(false)
+  const dateTime = useDateTime()
+
+  const nameFor = (ids: string[]) =>
+    ids
+      .map((id) => roster.data.find((member) => member.user_id === id)?.name)
+      .filter(Boolean)
+      .join(', ')
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {t('staff.openTasks', {
+            count: tasks.data.filter((task) => task.status !== 'completed').length,
+          })}
+        </p>
+        <Button onClick={() => setComposeOpen(true)}>
+          <Plus className="size-4" aria-hidden="true" />
+          {t('staff.addTask')}
+        </Button>
+      </div>
+
+      <div className="mt-3">
+        <Async
+          state={tasks}
+          icon={ClipboardList}
+          emptyTitle={t('staff.tasksEmpty')}
+          emptyDescription={t('staff.tasksEmptyBody')}
+          emptyAction={<Button onClick={() => setComposeOpen(true)}>{t('staff.addTask')}</Button>}
+        >
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {tasks.data.map((task) => (
+              <li
+                key={task.id}
+                className="flex flex-col rounded-lg border border-border bg-card p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-medium text-card-foreground text-pretty">{task.title}</h3>
+                  <Badge variant={PRIORITY_VARIANT[task.priority]}>
+                    {t(`staff.priority.${task.priority}`)}
+                  </Badge>
+                </div>
+                {task.description ? (
+                  <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                    {task.description}
+                  </p>
+                ) : null}
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <dt>{t('staff.due')}</dt>
+                  <dd className="tabular-nums">{dateTime(task.due_at)}</dd>
+                  <dt>{t('staff.assignee')}</dt>
+                  <dd>{nameFor(task.assigned_to) || t('staff.unassigned')}</dd>
+                  {task.location ? (
+                    <>
+                      <dt>{t('staff.location')}</dt>
+                      <dd>{task.location}</dd>
+                    </>
+                  ) : null}
+                </dl>
+                <div className="mt-3 flex items-center gap-2">
+                  <Badge variant="outline">{t(`staff.taskStatus.${task.status}`)}</Badge>
+                  <span className="flex-1" />
+                  {task.status !== 'completed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setStatus.mutate({ id: task.id, status: 'completed' })}
+                    >
+                      {t('staff.complete')}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Async>
+      </div>
+
+      <TaskDialog
+        eventId={eventId}
+        roster={roster.data}
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+      />
+    </>
+  )
+}
+
+function TaskDialog({
+  eventId,
+  roster,
+  open,
+  onOpenChange,
+}: {
+  eventId: string | undefined
+  roster: StaffRow[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation(['organizer', 'common'])
+  const userId = useAuthStore((s) => s.user?.id)
+  const save = useSaveTask(eventId ?? '')
+  const [title, setTitle] = useState('')
+  const [priority, setPriority] = useState<TaskPriority>('medium')
+  const [dueAt, setDueAt] = useState('')
+  const [location, setLocation] = useState('')
+  const [assignee, setAssignee] = useState('')
+
+  const submit = (formEvent: React.FormEvent) => {
+    formEvent.preventDefault()
+    const values: Partial<StaffTaskRow> = {
+      title: title.trim(),
+      priority,
+      status: 'pending',
+      category: 'operations',
+      // `datetime-local` has no zone; the browser's own zone is the venue's.
+      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      location: location.trim() || null,
+      assigned_to: assignee ? [assignee] : [],
+      created_by: userId ?? null,
+    }
+    save.mutate(values, {
+      onSuccess: () => {
+        toast.success(t('staff.taskAdded'))
+        setTitle('')
+        setDueAt('')
+        setLocation('')
+        setAssignee('')
+        onOpenChange(false)
+      },
+      onError: () => toast.error(t('common:error.generic')),
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>{t('staff.addTask')}</DialogTitle>
+            <DialogDescription>{t('staff.addTaskHint')}</DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="task-title">{t('staff.taskTitle')}</Label>
+              <Input
+                id="task-title"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="task-priority">{t('staff.priorityLabel')}</Label>
+                <Select
+                  value={priority}
+                  onValueChange={(value) => setPriority(value as TaskPriority)}
+                >
+                  <SelectTrigger id="task-priority" className="coarse:min-h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`staff.priority.${value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-due">{t('staff.due')}</Label>
+                {/* Native picker: correct on every phone, zero dependency. */}
+                <Input
+                  id="task-due"
+                  type="datetime-local"
+                  value={dueAt}
+                  onChange={(e) => setDueAt(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="task-location">{t('staff.location')}</Label>
+                <Input
+                  id="task-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Gate 3"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-assignee">{t('staff.assignee')}</Label>
+                <Select value={assignee} onValueChange={setAssignee}>
+                  <SelectTrigger id="task-assignee" className="coarse:min-h-11">
+                    <SelectValue placeholder={t('staff.unassigned')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roster.map((member) => (
+                      <SelectItem key={member.id} value={member.user_id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common:action.cancel')}
+            </Button>
+            <Button type="submit" disabled={save.isPending || !title.trim()}>
+              {save.isPending ? t('common:status.saving') : t('common:action.save')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

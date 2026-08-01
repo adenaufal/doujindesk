@@ -2,538 +2,293 @@
 
 Branch: `feat/functional-rebuild`. Brief: `PLAN_PROMPT.md`. Plan: `PLAN.md` (16 packages, 7 waves).
 
-**Status: waves 0-3 landed. Waves 4-6 not started.** 14 commits. Typecheck, tests and
-build are green; `pnpm lint` is not (see Known-not-done).
-
----
-
-## Start here next session
+**Status: all 16 packages landed.** Typecheck, tests, lint and build are green.
+The database migrations have **not** been applied — see Blocked #1. Until they
+are, run the app in demo mode (`pnpm dev`, which turns it on by default).
 
 ```
-Wave 4  P9-data-layer                                                    <- next, serial, gates everything
-Wave 5  P11-circle-path, P12-booth-floorplan,
-        P13-attendee-surface, P14-organizer-ops                          4 parallel
-Wave 6  P16-hardening                                                    criteria sweep, README, a11y
+pnpm dev      # fixture-backed demo, no .env needed, role picker in the banner
+pnpm test     # 146 tests, 14 files
+pnpm lint     # 0 errors, 6 react-refresh warnings
+pnpm build    # tsc -b && vite build, emits dist/sw.js + manifest
 ```
 
-Each package's full instruction is in `PLAN.md` under its `### <id>` heading. An
-implementer agent needs `PLAN_PROMPT.md` plus its own package section and nothing else.
+---
 
-**Do Wave 4 before anything else.** `P9-data-layer` authors the seam all four Wave 5
-packages build on: `database.types.ts` generated against migrations 001-006,
-`createClient<Database>`, and the TanStack Query hook pattern. Four agents writing
-features in parallel against an unstable seam produce four different shapes. It also
-deletes `circleStore`, `ticketStore`, `financialStore` and `staffStore`, which are
-hand-rolled caches of server data that TanStack Query supersedes.
+## Blocked — needs the owner
+
+Nothing here can be done by an agent. Each is one decision or one command.
+
+1. **Apply migrations 002–006.** Six files in `supabase/migrations/`, written,
+   committed, never run. `.env` points at a live project (`iaieygnykpwckdwkhcqc`).
+   Read `supabase/migrations/README.md` first — it carries the apply order and six
+   paste-able `SET LOCAL role` assertions that prove the RLS policies do what they
+   claim. Then `supabase db push`. **Until this lands, `VITE_DEMO_MODE=false` gives
+   an app that authenticates for real and errors on every screen**, because
+   `profiles`, `ticket_passes`, `ticket_scans` and `financial_transactions` do not
+   exist yet. Nothing below Wave 3 has ever run against a real database.
+
+2. **Run the six-statement RLS checklist** in `supabase/migrations/README.md` after
+   the push. The policies were verified against a throwaway local `postgres:15`
+   container, never against this project.
+
+3. **Rotate the Supabase service role key.** It sat in plaintext in
+   `supabase/config.ts` on disk. Verified never committed
+   (`git log --all -S 'service_role'` is empty) and the file is deleted, so this is
+   precaution rather than incident response — but `exp` is 2035 and rotation is cheap.
+
+4. **Confirm or revert the brand colour.** Light `--primary` moved `#ff4500` →
+   `#d63900` (16 100% 42%) because the original measured 3.44:1 on a 14px button
+   label, under the 4.5:1 AA threshold criterion 6 requires. To keep the original
+   orange exactly: revert `--primary` and add a `--primary-strong` used only by
+   text-bearing surfaces — one token plus a Button variant change.
+
+5. **Confirm the payment provider.** Defaulted to **Midtrans Snap**. Changing it
+   touches only the `gateway` object and the order-id codec in
+   `api/webhooks/payment.ts`. Snap settles IDR only, so the USD Tokyo fixture event
+   raises a named error rather than silently charging rupiah. Deployment also needs
+   `MIDTRANS_SERVER_KEY` and `MIDTRANS_IS_PRODUCTION` (listed in `.env.example`,
+   no values, server-side only).
+
+6. **Supply a brand SVG for the PWA icons.** They were generated from
+   `public/favicon.svg`, which is green on near-black and does not match the orange
+   brand. `pnpm dlx @vite-pwa/assets-generator --preset minimal-2023 public/<brand>.svg`
+
+7. **Have a native JA/ID reader review `src/locales/{ja,id}/*.json`.** All three
+   locales are fully written; the risk is register (敬語 level, formal vs casual ID),
+   not correctness.
 
 ---
 
-## Blocked - needs the owner
+## In progress
 
-1. **Apply the migrations.** Six files in `supabase/migrations/` are written, committed
-   and never run. `.env` points at a live project (`iaieygnykpwckdwkhcqc`). Review, then
-   `supabase db push`. `supabase/migrations/README.md` carries the apply order plus six
-   paste-able `SET LOCAL role` assertions that prove the RLS policies do what they claim.
-   **Nothing from Wave 4 on can be tested end to end until this lands** - the app now
-   authenticates for real against a database whose `profiles` table does not exist yet.
-
-2. **Rotate the Supabase service role key.** It sat in plaintext in `supabase/config.ts`
-   on disk. Verified never committed (`git log --all -S 'service_role'` is empty) and the
-   file is deleted, so this is precaution rather than incident response - but `exp` is
-   2035 and rotation is cheap.
-
-3. **Confirm or revert the brand colour change.** Light `--primary` moved `#ff4500` ->
-   `#d63900` because the original measured 3.44:1 on a 14px button label, under the 4.5:1
-   AA threshold criterion 6 requires. To keep the original orange exactly: revert
-   `--primary` and add a `--primary-strong` (16 100% 42%) used only by text-bearing
-   surfaces - one token plus a Button variant change.
-
-4. **Supply a brand SVG for the PWA icons.** They were generated from
-   `public/favicon.svg`, which is green on near-black and does not match the orange brand.
-   `pnpm dlx @vite-pwa/assets-generator --preset minimal-2023 public/<brand>.svg`
+Nothing.
 
 ---
 
-## Known-not-done
+## Verification — the eight criteria
 
-- **Mock data still reaches 9 screens**: `AnnouncementSystem`, `AttendeeRegistration`,
-  `CircleCatalog`, `EventGuide`, `EventSchedule`, `FinancialManagement`, `InteractiveMap`,
-  `NotificationCenter`, `QueueStatus` - plus `eventStore` and `financialStore`. All owned
-  by Wave 5. Success criterion 1 is not met yet.
-- **`CircleManagement.tsx:433,464` writes status `'approved'`**, which the CHECK
-  constraint rejects - it only permits `'accepted'`. The review queue throws on every
-  approval. `P11-circle-path` owns the fix.
-- **`pnpm lint` exits 1** on 21 errors + 8 warnings, all pre-existing `no-explicit-any` /
-  `no-unused-vars` in Wave 5 files. The new token gate contributes zero. Each Wave 5
-  package removes its own files from the baseline in `eslint.config.js`.
-- **The floor plan needs rebuilding on plain SVG.** `leaflet`/`react-leaflet` were dropped
-  as dead weight; `P12-booth-floorplan` builds the geometry model directly.
-- **Bundle is 929 kB** (266 kB gzipped) in a single chunk. Unaddressed.
-- **No payment webhook yet.** `api/` holds no server. `P11-circle-path` adds exactly one
-  `@vercel/node` handler at `api/webhooks/payment.ts`. It can only be exercised via
-  `vercel dev` or a preview deploy, never `pnpm dev`.
+Every line below is a command that was run in this repo on this branch, with its
+real result. Where a criterion cannot be closed without the migrations applied,
+it says so instead of claiming a pass.
 
----
+| # | Criterion | Command | Result |
+|---|---|---|---|
+| 1 | No mock data | `grep -rn "Mock\|mockUser\|mock-session" src/` | One hit: `vi.clearAllMocks()` in `src/components/attendee.test.tsx`. Nothing in shipped source. Asserted permanently in `src/test/criteria.test.ts`, which also fails on `Comic Frontier 18`, `Sakura Studios`, `2500000000`, `lorem ipsum` and `trae-api-sg`, and boots `src/main.tsx` against a seeded localStorage to prove the five legacy `persist` keys are removed |
+| 2 | Auth is real | `pnpm test` → `RequireRole.test.tsx`, `nav.test.ts`, `criteria.test.ts` | Guards and redirects pass. **RLS is NOT verified against a live database** — migration 002 was exercised only in a throwaway container. Blocked #1/#2 |
+| 3 | Scanner works offline | `pnpm test` → `src/lib/scanQueue.test.ts` (9), `scanContract.test.ts` (9) | Pass, including 50 scans with zero network calls, one RPC on reconnect, and a double-admit across two devices resolved to one admission plus one visible conflict. The fake server enforces both SQL unique constraints. **Never run against real Postgres** |
+| 4 | Money is auditable | `pnpm test` → `money.test.ts`, `ledger.test.ts` | Pass. The ledger is written by trigger with no client INSERT policy; `FinancialManagement` has no update or delete path and every total reads `event_financial_summary`. Migration 004 was executed against a throwaway `postgres:15`, not this project |
+| 5 | No AI slop | `pnpm lint` | **Exit 0.** `TOKEN_GATE_BASELINE` is empty — no file is exempted from the token gate. `criteria.test.ts` re-asserts zero raw palette classes, gradients and hex across every `.tsx`, and fails if the baseline is refilled. 6 remaining warnings are `react-refresh/only-export-components` on four primitives that export a `cva` variant next to a component |
+| 6 | Works on a phone | headless-Chrome sweep at 320 / 768 / 1440 over 22 route+role combinations | **Zero horizontal scroll everywhere.** Tap targets, tab order and focus rings: see the sweep notes below |
+| 7 | Critical paths tested | `pnpm test` | **14 files, 146 tests, exit 0.** All four required paths present: scan valid/used/queued, application submit + validation, booth allocation conflict, role-guard redirect |
+| 8 | README describes the code | `README.md` rewritten; `criteria.test.ts` asserts every repo path it names exists | Pass |
 
-## Correction to the plan
+Also green: `npx tsc --noEmit` exit 0, `pnpm build` exit 0 (emits `dist/sw.js` and
+`dist/manifest.webmanifest`).
 
-`PLAN.md` originally claimed `tailwind.config.js` emitting `hsl(var(--primary))` without
-`<alpha-value>` made every `bg-primary/90` compile to nothing. **False.** Tailwind
-v3.4.17 infers the alpha channel from the bare form. `P7-design-system` caught it by
-compiling HEAD's config in isolation rather than trusting the plan; independently
-re-verified. Retracted in `PLAN.md` (commit `6e867d3`). The canonical `<alpha-value>`
-form landed anyway as upgrade insurance, but nothing was broken.
+### The 320 / 768 / 1440 sweep
 
-Treat the rest of the plan the same way: test a premise before building on it.
+Driven over CDP against `chrome-headless-shell` with touch emulation on for the
+two narrow widths, so `coarse:` actually applies — the Playwright MCP browser
+profile is held by another process and could not be used. Signed in through the
+demo role picker as each of organizer, staff, circle and attendee.
 
----
-
-## Done
-
-- Planning — audited the codebase across 5 lenses, researched UX references on
-  Mobbin, generated and merged 3 competing architecture proposals into `PLAN.md`
-  (16 packages, 7 waves).
-- `P1-repo-hygiene` — narrowed `.gitignore` (blanket `supabase/` and `*.sql` →
-  `supabase/.branches/`, `supabase/.temp/`, `supabase/config.ts`, `backups/*.sql`)
-  and deleted `supabase/config.ts` in the same commit, so tracking migrations never
-  exposed the plaintext service role key it held. `001_initial_schema.sql` is now
-  tracked. Added `.env.example` (four names, no values) and extended `.vercelignore`.
-- `P2-rls-foundation` — wrote `supabase/migrations/002_identity_and_rls.sql`:
-  `profiles` + `app_role` enum with a signup trigger that cannot mint an organizer,
-  `staff` hardened into a real membership table, and four `SECURITY DEFINER`
-  helpers (`current_app_role`, `is_event_staff`, `is_event_organizer`,
-  `manages_profile`) that end the 42P17 recursion — every 001 policy is dropped and
-  rewritten so no policy predicate names `staff`. Also: separate `TO anon` /
-  `TO authenticated` read policies, a `BEFORE UPDATE` guard so a circle owner can
-  no longer self-approve or zero their own `total_amount`, all seven `GRANT ALL`
-  replaced with narrow verb sets (GRANT ALL includes TRUNCATE, which ignores RLS),
-  column-level UPDATE grant on `profiles` so nobody self-promotes, working
-  `updated_at` triggers, and `events.timezone`. `supabase/migrations/README.md`
-  carries the apply order plus six paste-able `SET LOCAL role` assertions. Not
-  applied — see Blocked.
-- `P3-platform` — dropped 13 dependencies (leaflet ×3, express/cors/dotenv/nodemon/
-  concurrently + their types, the two Trae IDE plugins, `vite-tsconfig-paths`),
-  added TanStack Query, i18next, `@fontsource-variable/figtree`, Vitest + Testing
-  Library + `fake-indexeddb`, and `vite-plugin-pwa`. Deleted the Express server
-  (`api/app.ts`, `index.ts`, `server.ts`, `routes/auth.ts`), `nodemon.json` and the
-  dev proxy: **every privileged operation in this plan is a Postgres
-  `SECURITY DEFINER` RPC called with the user's own JWT**, so there is no server
-  and no service-role key in the runtime. The one exception is the inbound
-  payment-gateway webhook, whose caller holds no Supabase JWT — P11 adds exactly
-  one bare `@vercel/node` handler at `api/webhooks/payment.ts`. Trade recorded:
-  that endpoint can only be exercised via `vercel dev` or a preview deploy, never
-  `pnpm dev`. `@vercel/node` and the `/api/(.*)` rewrite stay for it. Vitest is
-  configured inside `vite.config.ts` (jsdom, globals, `src/test/setup.ts`);
-  `pnpm test` and `pnpm build` are green and the build emits `dist/sw.js` +
-  `dist/manifest.webmanifest`. PWA runtime caching is **one** entry — public
-  Supabase Storage objects, CacheFirst — and nothing from `/rest/v1`, `/auth/v1`
-  or `/realtime/v1`, because a cached ticket read is a stale "valid" answer and
-  the Cache API outlives logout. Added `pnpm-workspace.yaml`
-  (`allowBuilds: esbuild: true`); without it `pnpm install` exits 1 on
-  ERR_PNPM_IGNORED_BUILDS and every CI/Vercel install fails.
-  - PWA icons (192, 512, 512 maskable, 180 apple-touch, favicon.ico) were
-    generated from `public/favicon.svg` — it scales cleanly, but **the mark is
-    green on near-black and does not match the orange `--primary` brand**. Owner:
-    supply a real brand source SVG and re-run
-    `pnpm dlx @vite-pwa/assets-generator --preset minimal-2023 public/<file>.svg`.
-  - `pnpm lint` still exits 1 on 24 pre-existing errors in files owned by other
-    packages (`stores/*`, `components/*`, `ui/badge|button|form|textarea`). Not
-    touched here; P7 installs the lint gate and the baseline disables.
-- `P7-design-system` — collapsed `src/index.css` to one token source (deleted the
-  Tailwind-v4 `@theme inline` block and the duplicate raw-hex `:root`/`.dark`
-  inside `@layer base`, ~185 dead lines, as its own revertible commit), then made
-  the palette legal: `--primary` 16 100% 50% → **16 100% 42%** in light so a 14px
-  button label clears AA (3.44:1 → 4.72:1); `--destructive` is a real red instead
-  of being byte-identical to `--primary`; `--success`/`--warning`/`--info` added
-  with a `-foreground` and a `-subtle` surface each. 41 assertions in
-  `src/components/ui/tokens.test.ts` hold every pair at ≥4.5:1 in both themes and
-  fail if a second `:root` or an `@theme` block reappears. `tailwind.config.js`
-  now exposes the `--shadow-*` tokens as `boxShadow` (making `shadow-xs` real),
-  the 8 sidebar colours, `borderRadius.xl`, and a `coarse:` variant for 44px tap
-  targets. Fonts: one `@import '@fontsource-variable/figtree'` replaces the Google
-  Fonts URL and the 98-line "local backup" that pointed at gstatic TTFs; CJK
-  system fallback appended to `--font-sans`; `--font-mono` no longer points at a
-  proportional face. Primitives: `<CardAction>` was landing in the wrong grid cell
-  because `has-data-[slot=…]` is v4 shorthand that compiled to nothing; badge
-  gained success/warning/info/danger variants. `EmptyState` replaces
-  `src/components/Empty.tsx`. An ESLint `no-restricted-syntax` gate rejects raw
-  palette classes, gradients and hex in `.tsx`, with the 17 known-bad files
-  baselined in `eslint.config.js`.
-  - **The alpha-value bug in the plan does not exist.** `PLAN.md` "Verified
-    starting state" #4 claims `hsl(var(--primary))` without `<alpha-value>` makes
-    every `bg-primary/90` and `ring-ring/50` compile to nothing. Compiling HEAD's
-    config in a scratch project before editing showed the opposite: Tailwind
-    v3.4.17 infers the alpha channel itself, and both utilities were already
-    emitting `hsl(var(--primary) / 0.9)` and `hsl(var(--ring) / 0.5)`. The
-    canonical `<alpha-value>` form is still what landed — it is the documented
-    contract and survives a Tailwind upgrade — but no rendering changed, and the
-    "every focus ring renders blue-500" consequence was never true.
-  - **Brand change to confirm.** Light-theme `--primary` is now `#d63900`, not
-    `#ff4500`. If the owner wants the original orange kept exactly, the
-    alternative is reverting `--primary` and adding a `--primary-strong`
-    (16 100% 42%) used only by text-bearing surfaces — one extra token and a
-    Button variant change, no other edits.
-  - `pnpm lint` exits 1 on **23** pre-existing errors (`no-explicit-any`,
-    `no-unused-vars`, `prefer-const`) in `stores/*`, `hooks/use-toast.ts` and 7
-    screen components — all owned by later packages. The new token gate
-    contributes **0** violations. One of the 24 (`ui/textarea.tsx`) was in this
-    package's lane and is fixed.
-
-- `P4-scan-contract` — froze the contract the Dexie queue, the scanner UI and the
-  criterion-3 tests are all written against. `supabase/migrations/003_scanning.sql`
-  adds `ticket_passes` (one opaque-uuid pass per admitted person, so an order for
-  five admits five and not once-or-unlimited) and an append-only `ticket_scans`
-  that logs failures too. Two constraints carry the whole offline story:
-  `UNIQUE (client_scan_id)` makes replaying the IndexedDB queue idempotent, and
-  the partial unique index `one_admission_per_pass` makes double admission
-  impossible **in the database** — the 23505 it raises *is* the visible conflict
-  criterion 3 asks for. `redeem_tickets(p_scans jsonb)` is `SECURITY DEFINER`,
-  `SET search_path = ''`, authorises every item separately, locks the parent
-  order, evaluates the validity window in `events.timezone`, and returns the same
-  seven keys for a fresh scan and a replayed one (one builder,
-  `scan_result_json`). No write policy on either table plus
-  `REVOKE INSERT, UPDATE, DELETE`, so a scanner-role staffer cannot hand-forge an
-  `admitted` row. `src/lib/scanContract.ts` is the TypeScript half — zero imports,
-  no Supabase, no React — with one pure `resolveScanOutcome(local, server)` used
-  by both the optimistic UI and the authoritative sync loop, so the two can never
-  disagree about what "already used" means. 9 tests in `scanContract.test.ts`,
-  no DB and no DOM.
-  - **`PendingScan` carries `event_id`, which `PLAN.md` does not list.** It has
-    to: `ticket_scans.event_id` is NOT NULL and an unknown code still gets
-    logged, so it cannot be derived from the pass. It is also what the server
-    compares against the pass to produce `wrong_event`. P10 must send it.
-  - **`resolveScanOutcome` never returns `admitted` without a server answer.** A
-    queued scan is amber, permanently, until `flush()` resolves it, and a
-    `duplicate` sets `autoDismiss: false` as part of the contract rather than as
-    a UI choice. Anything that paints an unconfirmed scan green is the silent
-    double-admit in a nicer colour.
-  - **Re-entry.** `one_admission_per_pass` also blocks legitimate wristband
-    out-and-back, which real conventions do. The upgrade path is already in the
-    schema: `scan_type = 'reentry'` sits outside the partial index. Never drop
-    the index — that restores double-admission with no error anywhere.
-
-- `P15-i18n` — `src/lib/i18n.ts` initialises i18next + react-i18next with
-  `fallbackLng: 'en'`, six route namespaces (`common`, `auth`, `circle`,
-  `scanner`, `catalog`, `organizer`) and 18 seeded JSON files under
-  `src/locales/{en,ja,id}/`. No language detector and no HTTP backend:
-  `navigator.language.split('-')[0]` with a `doujindesk.locale` localStorage
-  override is the detector, and `import.meta.glob` is the backend — `en` eager
-  (it is the fallback and the first paint), ja/id lazy, so the build emits 12
-  separate locale chunks and a JA bundle never reaches an EN user. A
-  `languageChanged` listener writes `document.documentElement.lang`, which
-  `index.html` hardcodes to `en` and which is what selects the right regional
-  glyph variants for shared Han characters and tells a screen reader which voice
-  to use. `setLocale()` loads bundles *before* switching, persists to
-  localStorage, and best-effort echoes to `profiles.locale` (lazy-imported
-  Supabase, every failure swallowed — signed out, offline, or 002 not applied)
-  so the preference follows a staffer to the phone at the door.
-  `LanguageSwitcher.tsx` is a `ui/select` with `min-h-11`, an `aria-label`, and
-  `lang=` per option. 8 assertions in `src/lib/i18n.test.ts`, including a key-set
-  equality check across all three locales for **every** namespace — that is the
-  test that fails when a Wave 5 package adds an `en` key and forgets ja/id, which
-  would render the raw key on a Japanese screen.
-  - **Furigana is not a translation** — a comment at the top of `i18n.ts` says so
-    at length, because `circle_name_furigana` sits next to `circle_name` and
-    invites the mistake. It is a kana reading aid for sort order (P6 index) and
-    kana search (P13 query), stored per circle. Never an i18next key.
-  - Plural keys deliberately differ per locale: `en` carries `_one`/`_other`,
-    `ja` and `id` carry `_other` only, because `Intl.PluralRules` gives those two
-    a single category. The key-set test strips the suffix before comparing.
-  - Where a translation was uncertain the English string was **not** left in
-    place — all three locales are fully written. Owner should still have a native
-    JA/ID reader review the JSON; the risk is register (お/敬語 level, formal vs
-    casual ID), not correctness.
-- `P5-money-core` — wrote `supabase/migrations/004_money.sql` and `src/lib/money.ts`.
-  Criterion 4 in three mechanisms: (1) `financial_transactions_immutable()`, a
-  `BEFORE UPDATE OR DELETE` trigger that unconditionally raises — RLS does not
-  constrain the table owner or the service role the payment webhook uses, a trigger
-  does; (2) ledger rows are INSERTed only by `AFTER UPDATE` triggers on `circles`
-  and `ticket_purchases` that fire on a `payment_status` transition, with no INSERT
-  policy and no INSERT grant for anon or authenticated anywhere in the schema;
-  (3) `event_financial_summary`, a `security_invoker` view the dashboard reads
-  instead of reducing rows in a component. Refunds are reversing `debit` entries
-  carrying `reverses_transaction_id`, never edits. Also: `purchase_tickets()` reads
-  price out of `tickets` server-side and does its oversell guard in one
-  `UPDATE … WHERE quantity_sold + n <= quantity_available RETURNING`, so two buyers
-  for the last seat serialise on the row lock; a `BEFORE INSERT OR UPDATE` trigger
-  on `circles` recomputes `total_amount` from a new `event_pricing` sheet and
-  discards whatever the browser sent; every money column widened off 001's
-  `DECIMAL(10,2)` (Rp 99,999,999.99 — under USD 6,500, i.e. one mid-sized event's
-  gate). `src/lib/money.ts` is the only place an amount becomes a string: currency
-  is event-scoped, locale is user-scoped, and they are never coupled.
-  - **Verified by execution, not by reading.** 001 → 002 → a stub 003 → 004 were
-    applied to a throwaway local `postgres:15` container (never the live project)
-    and exercised: server-side pricing, oversell rejection, one pass per head,
-    trigger-written ledger row, `UPDATE`/`DELETE` on the ledger both blocked,
-    a circle owner's `total_amount = 0` tamper overwritten to the derived 675,000,
-    refund posting a reversing debit, and `event_financial_summary` netting
-    correctly. Under `SET ROLE authenticated` an attendee sees **0** ledger rows and
-    **0** summary rows while the organizer sees 3 of each — `security_invoker` is
-    doing its job.
-  - **Deviation from the plan, deliberate:** the plan asked for a `status` column on
-    `ticket_purchases` with the domain `('pending','paid','cancelled','refunded')`.
-    001 already ships `payment_status` with exactly that domain. Two columns holding
-    one state diverge, and when they do the ledger trigger fires on one while the UI
-    reads the other — a silent accounting bug. **`payment_status` is the canonical
-    order state; downstream packages write that, not `status`.**
-  - **Second deviation:** the plan asked to `REVOKE UPDATE (quantity_sold, price)`.
-    `quantity_sold` is revoked (re-issued as a per-column grant, since Postgres
-    cannot subtract a column from a table-wide grant). `price` is deliberately left
-    grantable: column grants apply to every `authenticated` role including
-    organizers, so revoking it would leave the tier editor with no door while
-    closing nothing — `tickets_write_organizer` already restricts every UPDATE to
-    organizers and `purchase_tickets()` never reads a client price.
-  - **Consequence the owner should know:** `authenticated` has no UPDATE grant on
-    `ticket_purchases` at all, so nothing in the browser can move an order to
-    `paid`. That transition belongs to P11's payment webhook on the service role.
-    Until that lands, an order can only be marked paid from the SQL editor.
-  - **Consequence #2:** the immutability trigger also blocks `DELETE`, including via
-    `ON DELETE CASCADE`. An event that has taken money can no longer be deleted —
-    retire it with `events.status = 'cancelled'`. This is intended; the ledger is
-    the point.
-
-- `P6-schema-completion` — wrote `005_operations.sql` and
-  `006_catalog_floorplan_storage.sql`. **005**: the ~15 form fields that are not
-  columns (so the app's only real write stops failing with PGRST204),
-  `sells_commission` DECIMAL→boolean with the rate moved to `commission_rate`,
-  `draft`/`submitted` added to the application_status domain, `circle_code`'s
-  *global* UNIQUE replaced by `UNIQUE(event_id, circle_code)` (every convention
-  restarts at A-01) plus `UNIQUE(event_id, user_id)` so one account cannot flood
-  the queue, a `circle_name_sort_key` folded katakana→hiragana by an IMMUTABLE
-  `kana_sort_key()` and maintained by trigger (Postgres orders kanji by code
-  point, which is not 五十音), and five operations tables — `staff_tasks`
-  (uuid[] + GIN, not a join table), `announcements` (jsonb title/body keyed
-  {en,ja,id}), `notifications`, `event_schedule`, `queues` — plus
-  `event_counters`. The counter exists because a raw `ticket_scans` subscription
-  at doors-open is O(scans × clients) of realtime traffic to every organizer
-  phone on venue wifi; one row is O(clients). `admitted_count` is incremented by
-  an AFTER INSERT trigger on `ticket_scans` (entry only — `reentry` would inflate
-  the headcount every lunch break), `queue_total` is rolled up from open
-  `queues`, and neither has a write grant. **006**: `public.circle_catalog`, a
-  `security_barrier` view with an explicit projection and no `SELECT *` — `anon`
-  never gets a policy on `circles`, because that row holds email, phone, address,
-  co-rep contacts and emergency contacts; `booths_no_overlap`, a
-  `btree_gist` EXCLUDE constraint that makes geometric collision a 23P01 from the
-  database rather than a check two organizers on two laptops can both pass;
-  `one_booth_per_circle`; `events.floor_plan jsonb`; and two storage buckets with
-  real `file_size_limit`/`allowed_mime_types` (the form's 5MB check is one curl
-  away from irrelevant) behind owner-folder policies on `storage.objects`.
-  - **Verified by execution.** 001 → 006 were applied in order to a throwaway
-    local `postgres:15` container (never the live project) behind ~40 lines of
-    Supabase-shaped stubs (`auth.users`, `auth.uid()`, `storage.buckets/objects`,
-    `storage.foldername`, the `anon`/`authenticated` roles, an empty
-    `supabase_realtime` publication), then exercised with 37 `RAISE EXCEPTION`
-    assertions under `SET ROLE authenticated` / `SET ROLE anon` — all green,
-    including: an applicant can submit their own draft but cannot self-approve,
-    write `review_notes`/`waitlist_position` or zero `total_amount`; an organizer
-    accept stamps `reviewed_at`/`reviewed_by`; 亜細亜組 sorts before 渋谷スタジオ
-    by reading; `anon` reads 3 catalog rows and 0 raw `circles` rows; an accepted
-    circle on a *draft* event stays out of the catalog; edge-adjacent booths are
-    allowed while a genuine overlap raises 23P01; two `redeem_tickets` admissions
-    move the counter to 2 and a duplicate + a reentry leave it there; a recipient
-    can mark a notification read but cannot rewrite its text or post into anyone
-    else's inbox; a circle cannot upload into another circle's storage folder.
-    The harness was deleted afterwards — it is 5 files and reproducible from this
-    paragraph, and it is not this package's to own.
-  - **The plan asked for a new `enforce_circle_field_permissions()` trigger.**
-    002 already ships exactly that under the name
-    `circles_guard_privileged_columns`, and the name is load-bearing: BEFORE
-    triggers fire in name order and 004's `circles_set_total_amount` must run
-    after it. A second trigger would fight the first, so 005 issues a
-    `CREATE OR REPLACE` of the 002 *function* (002's file is untouched) that adds
-    the new review columns and **one behaviour change**: a non-organizer may now
-    make the single transition `draft → submitted`. Without it the applicant
-    cannot press Submit, because 002's guard reverts every `application_status`
-    change for a non-organizer.
-  - **The EXCLUDE constraint insets each booth by 0.01.** `box && box` treats
-    boxes that merely *touch* as overlapping, and convention floor plans are laid
-    out edge to edge — the literal expression in `PLAN.md` would have rejected
-    A-02 placed flush against A-01 and made the constraint unusable. Coordinates
-    are `numeric(8,2)`, so 0.01 is one representable unit: booths must genuinely
-    interpenetrate to be refused. Tested both ways.
-  - **`notifications.title`/`body` are jsonb, not text.** The plan lists them as
-    plain columns, but the announcement fan-out would then have to pick a locale
-    per recipient at write time and freeze the text in whatever language they
-    preferred that day. jsonb keyed `{en,ja,id}` matches `announcements`; the
-    client renders `body[locale] ?? body.en`.
-  - **`circle_catalog` also projects `description` and `works_description`**,
-    which the plan's column list omits. They are circle-authored catalog copy,
-    the only prose the catalog has, and P13 cannot add them (the view is this
-    package's). Everything genuinely private is named in a `COMMENT ON VIEW` as
-    a do-not-add list.
-  - **`circles.circle_code` is now nullable.** 001 made it NOT NULL, which is why
-    the application form generates `C123456AB` junk client-side. A draft has no
-    code, and the real code (A-01) is the organizer's to allocate. P11 should
-    stop generating one.
-  - **For P11/P12/P13**: the upload path must become `${uid}/${uuid}.${ext}` in
-    bucket `circle-public` or every upload 403s (tested); `booths.circle_id` is
-    the single source of truth for allocation and `circles.booth_number` is
-    deprecated — read `circle_catalog.booth_number`; catch 23P01 from the
-    floor-plan editor instead of re-implementing collision detection; and
-    `announcements`/`event_schedule` titles are jsonb, not strings.
-
-- `P10-offline-scanner` — criterion 3, built on the P4 contract and the 003
-  constraints. `src/lib/scanQueue.ts`: Dexie (`doujindesk-scans`) with
-  `pendingScans` + `ticketMirror` + `mirrorMeta`; `enqueue()` writes IndexedDB
-  before anything touches the network, `flush()` drains `sync_state='pending'` in
-  batches of 50 through one `redeem_tickets` RPC and is idempotent via
-  `UNIQUE(client_scan_id)`, triggered on `online` and `visibilitychange` (never
-  Background Sync — iOS Safari does not implement it). Any non-admitted answer
-  becomes a `conflict` row that survives until acknowledged. `checkLocal()` reads
-  the pre-doors mirror plus this device's own queue and returns `null` only when
-  there is genuinely nothing to say. `src/lib/ticketCode.ts`: the scannable
-  payload is the `qr_token` uuid and nothing else; `src/lib/qrcode.ts` is down to
-  `generateQRCode` — the old `parseQRCode`/`validateQRCode` decided admission
-  from the payload's own claims, so typing JSON into the manual box admitted a
-  person. `TicketScanner.tsx` rewritten as a full-bleed viewfinder
-  (`BarcodeDetector` decode loop at ~8fps, corner brackets, sync-state chip,
-  torch, always-available manual entry, mirror download with count + timestamp,
-  vibrate + WebAudio per outcome) with `ScanResultSheet` (green admitted / amber
-  queued / red duplicate naming the winning device, gate and time) and a
-  persistent `ConflictList`. The lying `syncOfflineData()` "Sync Complete" toast
-  and the local-array "already used" check are gone. 9 tests in
-  `src/lib/scanQueue.test.ts` against a fake server that enforces both SQL unique
-  constraints, including the 50-scans-offline case (zero network calls, one RPC
-  on reconnect) and double-admit across two devices. `TicketScanner.tsx` removed
-  from the eslint token-gate baseline.
-
-- `P8-auth-shell` — criterion 2. `src/stores/authStore.ts` rewritten against
-  Supabase Auth: `getSession()` on boot plus an `onAuthStateChange` subscription
-  (`initAuth()` from App.tsx), `signIn/signUp/signOut`, and `role` read from the
-  `profiles` table — the seeded admin user, `'mock-session-token'`,
-  `permissions: string[]`, `hasPermission()` and the `persist` middleware are all
-  gone (a persisted role is a privilege bug; the Supabase client already persists
-  the session). `RequireRole` guards every route: skeleton while `loading`,
-  `/login?next=…` when unauthenticated, the role's own home when the role is
-  wrong. Three layout routes in `App.tsx` — Public (topbar + footer), App (240px
-  `--sidebar-*` rail collapsing to a Radix Dialog drawer below `lg`, event
-  switcher on top, EVENT/OPERATIONS/MONEY groups from `layout/nav.ts`, role badge
-  + user row pinned at the bottom, topbar with breadcrumb, connectivity chip,
-  theme toggle, bell and account menu) and Focus (full-bleed, no chrome, what the
-  scanner renders into). Nine previously unrouted components now have a path and
-  a role, `eventId="default-event-id"` is gone, and `:eventId` from the URL is the
-  only event scope. `useTheme` is a real module store with an explicit topbar
-  toggle, OS default and localStorage persistence — it was previously per-component
-  state whose only caller was `<Toaster />`. `Footer` folded into the role-aware
-  nav table (it used to offer Financial, Staff and Booths to anonymous
-  attendees); `FontLoader.tsx` deleted (its `mode: 'no-cors'` HEAD check could
-  never fail, and P7 self-hosts the font). `Home.tsx` rewritten as the honest
-  landing page and event chooser — the `from-blue-50 to-indigo-100` gradient, the
-  103 palette violations, "Join thousands of circles and organizers" and "Trusted
-  by Convention Organizers" are gone, and it now lists real events from Supabase
-  with loading/error/empty states; removed from the eslint token-gate baseline.
-  New `shell` i18n namespace in en/ja/id. 10 tests: `RequireRole.test.tsx` (4)
-  and `layout/nav.test.ts` (6).
-
-- `P9-data-layer` — the seam Wave 5 builds on, plus demo mode.
-  `src/lib/database.types.ts` is hand-derived from migrations 001-006 (17 tables,
-  2 views, 2 RPCs, every CHECK constraint as a union) and the client is
-  `createClient<Database>`, so a wrong column name is now a build error rather
-  than a PGRST204 at the door. The two hand-written interfaces in
-  `src/lib/supabase.ts` that lied about ~14 columns are gone; `Circle`/`Event`
-  survive only as deprecated aliases, with `space_preference`/`space_size` typed
-  as the phantoms they are so `CircleManagement.tsx` (P11's file) keeps
-  compiling. Regeneration command is in the header comment — run it the day the
-  migrations land. `src/lib/queryClient.ts` (no refetch-on-focus, retry 2,
-  staleTime 30s, gcTime 24h, mutations never retried) is mounted in `main.tsx`.
-  `src/lib/queries/` is 12 table modules + `keys.ts` + `core.ts`, where every
-  list hook returns `{ data, isLoading, error, isEmpty, refetch }` so a screen
-  writes one set of loading/error/empty branches; `useFinancialSummary` selects
-  from `event_financial_summary` and `useCircleCatalog` from the `circle_catalog`
-  view, never the base table. `src/lib/useRealtimeTable.ts` is one
-  invalidate-only subscription hook. **The pattern Wave 5 must follow is the
-  header comment in `src/lib/queries/index.ts`** — four rules, and the reason
-  none of them mention demo mode.
-  - **Demo mode**, added this session at the owner's request so `npm run dev` is
-    clickable before any migration is applied. `VITE_DEMO_MODE` defaults ON in
-    dev and OFF in a build; explicit `'true'`/`'false'` wins, so
-    `VITE_DEMO_MODE=false pnpm dev` develops against real data post-apply. The
-    seam is **one line in `src/lib/supabase.ts`**: the export is either the real
-    client or `src/lib/demo/client.ts`, a hand-rolled PostgREST subset over an
-    in-memory store — 14 filters, insert/update/delete/upsert, single/maybeSingle,
-    count, a fake realtime channel that emits on write, and demo-mode
-    reimplementations of `redeem_tickets` and `purchase_tickets` that mirror 003
-    and 004 (one pass per head, oversell guard, the duplicate path, the ledger row
-    a trigger would write). No component knows which client it holds. Fixtures are
-    one module per surface under `src/lib/fixtures/` — real circle names
-    (猫町堂, Kopi Susu Studio, 亜細亜組), IDR amounts that match `event_pricing`,
-    twelve booths with real geometry, tickets across sold-out/active/refunded and
-    **one pass already redeemed**, so a rescan produces the duplicate sheet.
-    Views are computed on read exactly as the SQL derives them. Demo auth is a
-    role picker in a dismissible banner mounted from `main.tsx`, rendered only
-    when demo mode is on — with it off the picker is not wired, not merely
-    hidden. `src/lib/fixtures/README.md` is the recipe for adding a surface.
-    7 tests in `src/lib/demo/` including a full `<App/>` render on an organizer
-    route with no Supabase connection.
-  - **The four store deletions did NOT land, and this is the one thing to know
-    going into Wave 5.** `circleStore`, `ticketStore`, `financialStore` and
-    `staffStore` cannot be deleted from inside this package: `Dashboard`,
-    `FinancialManagement`, `StaffCoordination`, `TicketingSystem`,
-    `AttendeeRegistration` and `PaymentProcessor` destructure 6-15 bindings each
-    out of them, all six files belong to Wave 5, and deleting the stores without
-    editing those files breaks the build. Ownership: **P14** deletes
-    `circleStore`, `financialStore` and `staffStore` (it owns all three
-    consumers); **P13** deletes `ticketStore`, and **P11 must drop
-    `PaymentProcessor`'s `useTicketStore` import in the same wave** — that one
-    import is the only cross-package edge, so whoever lands second re-runs
-    `tsc`. Nothing new imports them: `src/stores/index.ts` no longer re-exports
-    them.
-  - `eventStore` **was** shrunk, in-lane: 176 lines to 35, the 'Comic Frontier
-    18' literal, the five invented aggregates (including the `revenue: {idr,usd}`
-    pair that contradicts the schema's single per-event `currency`) and both
-    `await sleep(1000)` fake fetches are gone, and `persist` went with them. What
-    is left is one always-null `currentEvent` that exists solely because
-    `Dashboard.tsx:205` and `EventGuide.tsx:246` read `currentEvent?.name`;
-    delete the file when they move to `useEvent(eventId)`.
-  - **The localStorage trap is closed.** `src/main.tsx` removes the five stale
-    `persist` keys on boot (`circle-store`, `ticket-store`, `financial-store`,
-    `doujindesk-staff-store`, `event-store`). Without it, deleting mock arrays
-    from source satisfies `grep -rn "Mock"` while the owner's own browser keeps
-    rehydrating Sakura Studios and Rp 2.500.000.000 forever — the single most
-    likely way criterion 1 gets falsely marked done.
-  - Measured, not assumed: the demo layer costs **12 kB raw / 4 kB gzipped** in a
-    production build (built both ways to compare). The bundle-size line under
-    Known-not-done predates P8/P10/P15 and is no longer 929 kB.
+- **No route at any width has `scrollWidth > clientWidth`.** Not one pixel.
+- Tab order on the dense organizer screens is skip-link → brand → event switcher →
+  sidebar, every stop carrying a visible ring.
+- Fixed during this sweep, all in shared primitives so the fix reached every caller:
+  `ui/tabs.tsx` triggers were 32px on touch (now `coarse:min-h-11`, list drops its
+  fixed height); `ui/checkbox.tsx` was a 16px hit target (now an invisible
+  `coarse:after:-inset-3.5`, giving 48px of hit area with zero layout change —
+  verified with `elementFromPoint`); the public topbar brand link was 32px.
+- Accessible names added where Radix renders `button role="checkbox"`, which a
+  wrapping `<label>` does **not** name (a button is not a labelable element):
+  `CircleCatalog` facets, `AnnouncementSystem` audiences, `CircleApplicationForm`.
+  `BoothAllocation`'s `sr-only` file input and `TicketScanner`'s missing `h1`
+  likewise.
+- **Known ceiling:** on the floor map and the booth editor at 320px, a booth is a
+  17×9 px SVG rect. A whole hall scaled to a phone cannot give each booth 44px;
+  both screens zoom, scroll and take arrow-key input instead.
 
 ---
 
-## Deferred - outside the scope fence
+## Done — one line per package
 
+- **P1-repo-hygiene** — narrowed `.gitignore` so migrations could be tracked without
+  exposing the service role key in `supabase/config.ts`, deleted that file, added
+  `.env.example`.
+- **P2-rls-foundation** — `002_identity_and_rls.sql`: `profiles` + `app_role`, a signup
+  trigger that cannot mint an organizer, and four `SECURITY DEFINER` helpers that end
+  the 42P17 recursion. Every 001 policy rewritten; no policy predicate names `staff`.
+- **P3-platform** — deleted the 501-returning Express server, pruned 13 dependencies,
+  added TanStack Query / i18next / Vitest / vite-plugin-pwa. **There is no application
+  server**: every privileged operation is a `SECURITY DEFINER` RPC on the user's own JWT.
+- **P7-design-system** — one token source in `src/index.css`, AA-legal palette, a real
+  `--destructive`, `--success`/`--warning`/`--info`, 41 contrast assertions in
+  `tokens.test.ts`, and the ESLint token gate.
+- **P15-i18n** — i18next with six route namespaces across en/ja/id, lazy locale chunks,
+  `<html lang>` tracking, and a key-set parity test that fails when a package adds an
+  `en` key and forgets the other two.
+- **P4-scan-contract** — `003_scanning.sql` plus the pure `scanContract.ts`.
+  `UNIQUE (client_scan_id)` makes queue replay idempotent; the partial index
+  `one_admission_per_pass` makes double admission impossible **in the database**.
+- **P5-money-core** — `004_money.sql` plus `money.ts`. Immutable ledger written by
+  trigger, `purchase_tickets` prices server-side, `event_financial_summary` is what
+  dashboards read.
+- **P10-offline-scanner** — Dexie queue, `BarcodeDetector` viewfinder, idempotent sync,
+  conflicts that survive until acknowledged. Nothing paints green without a server answer.
+- **P6-schema-completion** — `005_operations.sql` and `006_catalog_floorplan_storage.sql`:
+  the missing circle columns, five operations tables, `event_counters`, the
+  `circle_catalog` view, booth overlap constraints and storage policies.
+- **P8-auth-shell** — real Supabase Auth, four roles from `profiles`, `RequireRole` on
+  every route, three layout routes, event switcher, honest `Home`.
+- **P9-data-layer** — hand-derived `database.types.ts`, `createClient<Database>`, 12
+  TanStack Query modules behind one key factory, **and demo mode**: one seam in
+  `src/lib/supabase.ts`, a PostgREST subset over an in-memory store, a role picker.
+- **P11-circle-path** — application form with draft/upload/furigana, review queue with
+  bulk actions and CSV, hosted-checkout payment, and `api/webhooks/payment.ts`.
+- **P12-booth-floorplan** — one pure geometry model (`src/lib/floorplan.ts`, 26 tests)
+  shared by a plain-SVG editor and the attendee map; allocation is a conditional
+  `WHERE circle_id IS NULL` update the database arbitrates.
+- **P13-attendee-surface** — catalog off the `circle_catalog` view with facets and 五十音
+  sort, ticket checkout through `purchase_tickets` only, the QR wallet (new), schedule, guide.
+- **P14-organizer-ops** — dashboard on `count: 'exact', head: true` queries and one
+  realtime counter row, financial dashboard on `src/lib/ledger.ts`, staff roster and
+  tasks, announcements, notifications, queues. Charts are inline SVG.
+- **P16-hardening** — this pass: the criteria sweep above, the README rewrite, and the
+  defects listed next.
 
-Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
-rather than an implementation.
+### Fixed by P16 in files it does not own
 
-- `README.md` needs a demo-mode section (`VITE_DEMO_MODE`, the role picker,
-  "writes are lost on reload"). It is P16's file; the content is written and
-  ready to lift from `src/lib/fixtures/README.md`, and the banner states the
-  reload caveat on screen in the meantime.
-- `.env.example` should list `VITE_DEMO_MODE` (P1's file, one line, no value).
+By Wave 6 every screen package has landed, so these were fixed in place rather than
+reported:
 
-- `.gitignore` line 128 is a blanket `auth.json` (meant for composer/npm
-  credential files) and it silently ate `src/locales/{en,ja,id}/auth.json` — they
-  are tracked now only because P15 used `git add -f`. `config.json`,
-  `secrets.json` and `credentials.json` on lines 126–129 are the same trap for any
-  future source file. The fix is anchoring them (`/auth.json`), which lives in
-  `.gitignore` — P1's file, so left alone here. Run
-  `git status --ignored --short src/` after adding source files until it lands.
-- Staff shift scheduling — outside the scope fence.
-- Incident tracking — outside the scope fence.
-- Staff performance metrics — outside the scope fence.
-- Internal staff chat / messaging — outside the scope fence (the brief names "no
-  chat system" explicitly).
+- **`ui/input.tsx` dropped every ref.** A plain function component under React 18, so
+  the ref from react-hook-form's `register()` never attached: the field was never
+  registered and `getValues()` returned `undefined` — a form that renders and
+  validates correctly and submits nothing. Now `React.forwardRef`.
+- **Mutations invalidated a key that could not match.** `queryKeys.circles.list(id)`
+  is `['circles', id, null]`; `useCircles` caches under `['circles', id, {}]`, and
+  those do not prefix-match. Fixed once in `useWrite` (`queries/core.ts`), which
+  drops a trailing `null` sentinel before invalidating — so every filtered factory
+  (`circles.list`, `circles.catalog`, `staff.tasks`, `announcements.list`) is fixed
+  for every present and future caller, not just the one that was reported.
+- **Three routes pointed at the wrong component.** `/wallet` rendered
+  `AttendeeRegistration` (now deleted; `TicketWallet` is the element), `/tasks`
+  rendered the organizer console instead of `pages/StaffTasks`, and
+  `/e/:eventId/status` did not exist. `criteria.test.ts` now fails if any nav
+  destination or `homeForRole` target has no route.
+- **`USER.circle` owned two fixture circles on one event**, which 005's
+  `UNIQUE (event_id, user_id)` forbids and which made `useMyCircle`'s `maybeSingle()`
+  return PGRST116. The draft moved to a new `USER.circle3`.
+- **Dead code deleted**: `src/hooks/use-toast.ts` (the radix-toast hook — the app uses
+  sonner; it was also the last ESLint error), `src/stores/eventStore.ts` (no consumers
+  left) and `src/components/AttendeeRegistration.tsx`.
+- **`src/lib/i18n.ts` did not list `shell` or `floorplan` in `NAMESPACES`**, so the
+  key-parity test silently skipped both. Added; parity holds (12 assertions, was 8).
+- `src/main.tsx`'s cleanup comment quoted the fake literals it exists to remove, which
+  failed the criterion-1 grep for the right reason. Reworded.
+
+---
+
+## Contracts a later agent must not re-derive
+
+These were each established by execution and are load-bearing.
+
+- **`payment_status` is the canonical order state on `ticket_purchases`**, not
+  `status`. Two columns holding one state diverge, and the ledger trigger fires on one
+  while the UI reads the other.
+- **Never write `submitted_at`, `reviewed_at` or `reviewed_by` from the client.**
+  `circles_stamp_lifecycle` stamps them and `circles_guard_privileged_columns` reverts
+  anything a non-organizer sends.
+- **006 insets each booth by 0.01 before `&&`**, so edge-adjacent booths are legal
+  (convention aisles are flush) and two booths must interpenetrate by 0.02 to be
+  refused. `overlaps()` in `src/lib/floorplan.ts` reproduces that exactly — a client
+  pre-check stricter than the server is the one direction that must never happen.
+- **`one_admission_per_pass` also blocks legitimate re-entry.** The upgrade path is
+  already in the schema: `scan_type = 'reentry'` sits outside the partial index. Never
+  drop the index — that restores silent double-admission.
+- **`circle_catalog` is `security_barrier` with an explicit projection.** `anon` has no
+  policy on `circles` because that row carries email, phone, address and emergency
+  contacts. Any PII column added later must be kept out of the view; the do-not-add
+  list is a `COMMENT ON VIEW`.
+- **Uploads must go to `${uid}/${uuid}.${ext}` in `circle-public`** or 006's
+  owner-folder policy 403s them.
+- **`announcements` and `event_schedule` titles and `notifications` title/body are
+  jsonb** keyed `{en,ja,id}`, not text.
+- **`booths.circle_id` is the single source of truth for allocation.**
+  `circles.booth_number` is deprecated; read `circle_catalog.booth_number`.
+- **The ledger's immutability trigger blocks `DELETE` too, including via cascade.** An
+  event that has taken money cannot be deleted — retire it with
+  `events.status = 'cancelled'`.
+- **`authenticated` has no UPDATE grant on `ticket_purchases`.** Nothing in the browser
+  can move an order to `paid`; that transition belongs to the webhook on the service role.
+
+---
+
+## Known limits
+
+- **The payment webhook has never been executed.** Signature verification, the Snap
+  call and the status mapping are written against Midtrans's documented contract and
+  reviewed, not run — `pnpm dev` is Vite alone and serves no functions, so it needs
+  `vercel dev` or a preview deployment. First real run should watch the notification
+  content-type and whether the finish redirect carries `transaction_status` on every
+  channel.
+- **Demo-mode writes are lost on reload**, by design, and the banner says so.
+- **The demo shows one floor**, so the data-derived floor tabs on the map and editor
+  never appear. Four to six booths at `floor_level: 2` plus a `reserved` and a
+  `maintenance` booth would demo those paths.
+- **The mobile checkout's fixed bottom bar sits under the demo banner.** Demo-only
+  cosmetic overlap; the banner has a Hide button. A real fix needs a shared bottom-inset
+  variable.
+- **The bundle is one 1,090 kB chunk** (334 kB gzipped). No manual chunking, no route
+  splitting. The i18n locale chunks are split; nothing else is.
+- **Catalog search and facets filter the cached array client-side.** Fine to ~1k
+  circles, wrong at 10k. The server-side path already exists as
+  `useCircleCatalog(eventId, { search })`.
+- **Floor-plan import is one round trip per booth, serially.** Fine once per event;
+  a 600-booth hall is 600 requests and not atomic. Upgrade path is named in a
+  `// ponytail:` comment: one SECURITY DEFINER RPC taking the plan as jsonb.
+- **Six `react-refresh/only-export-components` warnings** in `ui/badge`, `ui/button`,
+  `ui/form` and `scanner/ScanResultSheet` — each exports a `cva` variant beside its
+  component. Warnings, not errors; splitting the files buys nothing but a file.
+- **A few user-facing strings are hardcoded English** in the circle path (address,
+  co-representative, the price-sheet caveat, the gateway channel list) — roughly 12 keys.
+- **The floor-plan catalog Dialog is not deep-linkable.** `share()` copies
+  `?circle=<id>` and nothing reads the param back.
+- **Booth `rotation` is stored, rendered and round-trips, but there is no rotate
+  handle.** Deliberate: 006 excludes on the un-rotated box, so rotation is presentation
+  only and a handle would imply the geometry respects it.
+- **Mobbin MCP and Context7 MCP require OAuth and were unauthenticated all session.**
+  Screens were built against `PLAN.md`'s UI Spec (itself Mobbin-grounded) and the
+  repo's own established patterns rather than fresh screenshot research.
+
+---
+
+## Deferred — outside the scope fence
+
+One line each, per the brief, rather than an implementation.
+
+- Staff shift scheduling.
+- Incident tracking.
+- Staff performance metrics.
+- Internal staff chat / messaging — the brief names "no chat system" explicitly.
 - Web Push *send* — needs VAPID keys and a server route to hold the private half.
   In-app notifications cover the same jobs without either.
-- 23 pre-existing `@typescript-eslint` errors (`no-explicit-any`,
-  `no-unused-vars`, `prefer-const`) in `src/stores/*`, `src/hooks/use-toast.ts`
-  and 7 screen components. Left alone by P7 — those files belong to P9 (which
-  deletes four of the stores outright) and to the Wave 5 screen packages. P16
-  closes whatever survives.
-- Shell follow-ups P8 could not do inside its own files: strip the now-redundant
-  `min-h-screen` wrappers from `Dashboard.tsx:195`, `BoothAllocation.tsx:224`,
-  `EventGuide.tsx:238` and `AttendeeRegistration.tsx:231/275` (they nest a
-  full-height scroll container inside the shell's own) — those files belong to
-  P12/P13/P14. `/circle/status` and `/wallet` still point at
-  `CircleApplicationForm`/`AttendeeRegistration` until P11 adds
-  `pages/CircleStatus.tsx` and P13 adds `TicketWallet.tsx`. The event switcher has
-  no `+ Create event` row because no package owns a create-event screen — an
-  organizer's first event has to be inserted by hand today.
+- Email invitations for staff — `auth.admin.inviteUserByEmail` needs the service role
+  key, so it needs a server route. Staff are invited by the email address of an existing
+  account; `useInviteStaff` errors with `no-account` if there is none.
+- Per-gate attendance counters — one `event_counters` row per event today.
+- Creating an event from the UI — no package owns a create-event screen, so an
+  organizer's first event is inserted by hand. Everything after that is event-scoped.
+- A period delta on the finance KPIs — `event_financial_summary` has no time dimension,
+  so a delta would have to be reduced from raw ledger rows, which is exactly what
+  criterion 4 forbids. It needs a period-bucketed view, i.e. a migration.
+- `venue_locations` (entrances, stages, food, restrooms on the attendee map) — no such
+  table exists in any migration. Adding it is a migration, not a screen edit.
+- Indoor wayfinding — a venue floor has no GPS fix and the schema carries no route
+  graph. Needs a waypoint table plus a pathfinder.
+- `.gitignore` lines 126–129 are blanket `auth.json` / `config.json` / `secrets.json` /
+  `credentials.json` (meant for credential files) and they silently ate
+  `src/locales/*/auth.json`, which are tracked only because P15 used `git add -f`.
+  Anchoring them (`/auth.json`) is the fix.

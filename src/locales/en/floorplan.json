@@ -1,0 +1,118 @@
+{
+  "editor": {
+    "title": "Booth allocation",
+    "subtitle": "Place booths on the hall floor and allocate them to accepted circles.",
+    "canvas": "Floor plan",
+    "hint": "Drag a booth to move it. Tap one to edit or allocate it.",
+    "placeHint": "Tap anywhere on the floor to place a new booth.",
+    "emptyTitle": "No booths on this floor yet",
+    "emptyBody": "Add the first booth, or import a plan you exported earlier.",
+    "unplaced": "Not on the plan",
+    "unplacedBody": "{{count}} booth(s) exist but have no position yet. Open one and set its position, or drag it in from the list.",
+    "floor": "Floor {{level}}",
+    "grid": "Grid: {{size}} m",
+    "legend": "Legend"
+  },
+  "action": {
+    "addBooth": "Add booth",
+    "stopAdding": "Done adding",
+    "export": "Export plan",
+    "import": "Import plan",
+    "clear": "Clear placements",
+    "assign": "Allocate circle",
+    "unassign": "Free the booth",
+    "delete": "Delete booth",
+    "showOnMap": "Show on map",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetView": "Reset view"
+  },
+  "status": {
+    "available": "Available",
+    "occupied": "Allocated",
+    "reserved": "Reserved",
+    "maintenance": "Out of service"
+  },
+  "stat": {
+    "total": "Booths",
+    "available": "Available",
+    "occupied": "Allocated",
+    "unplaced": "Unplaced"
+  },
+  "filter": {
+    "search": "Search booths",
+    "searchPlaceholder": "Booth number or circle name",
+    "status": "Status",
+    "allStatuses": "Any status"
+  },
+  "list": {
+    "title": "Booths",
+    "count": "{{shown}} of {{total}}",
+    "noResults": "No booth matches that search on this floor.",
+    "clearSearch": "Clear search"
+  },
+  "detail": {
+    "title": "Booth {{number}}",
+    "number": "Booth number",
+    "type": "Type",
+    "zone": "Zone",
+    "status": "Status",
+    "width": "Width (m)",
+    "height": "Depth (m)",
+    "x": "X (m)",
+    "y": "Y (m)",
+    "floor": "Floor",
+    "circle": "Circle",
+    "noCircle": "Not allocated",
+    "pickCircle": "Choose an accepted circle",
+    "noCandidates": "Every accepted circle already holds a booth.",
+    "unplacedNote": "This booth has no position yet. Set X and Y, or drag it on the plan."
+  },
+  "clear": {
+    "title": "Clear every placement on floor {{level}}?",
+    "body": "{{count}} booth(s) lose their position. The booths and their circle allocations stay; only the layout is cleared. Export the plan first if you might want it back.",
+    "confirm": "Clear placements"
+  },
+  "conflict": {
+    "taken": "Booth {{booth}} was just taken by {{circle}}.",
+    "takenUnknown": "Booth {{booth}} was just allocated by another organizer.",
+    "overlap": "That position overlaps {{booths}}. Move it clear of them first.",
+    "overlapServer": "The floor plan refused that position: booth {{booth}} would sit on top of another booth.",
+    "circleHasBooth": "{{circle}} already holds booth {{booth}}. A circle can only hold one.",
+    "duplicateNumber": "Booth number {{booth}} is already used at this event.",
+    "released": "Booth {{booth}} was already free."
+  },
+  "toast": {
+    "saved": "Booth {{booth}} saved",
+    "created": "Booth {{booth}} added",
+    "deleted": "Booth {{booth}} deleted",
+    "moved": "Booth {{booth}} moved",
+    "allocated": "Booth {{booth}} allocated to {{circle}}",
+    "freed": "Booth {{booth}} is available again",
+    "imported": "Imported {{updated}} booth(s), added {{created}}",
+    "exported": "Plan exported",
+    "cleared": "{{count}} placement(s) cleared"
+  },
+  "error": {
+    "loadTitle": "Could not load the floor plan",
+    "importFailed": "Import failed"
+  },
+  "map": {
+    "title": "Floor map",
+    "subtitle": "Find a circle's booth before you walk the hall.",
+    "searchPlaceholder": "Circle name, pen name or booth number",
+    "results": "{{count}} match(es)",
+    "noResults": "No circle or booth matches that.",
+    "emptyTitle": "The floor plan is not published yet",
+    "emptyBody": "The organizer has not placed the booths for this event. Check back closer to the day.",
+    "selectHint": "Tap a booth to see who is there.",
+    "notPlaced": "{{circle}} is at booth {{booth}}, which is not on the plan yet.",
+    "unallocated": "Not allocated yet",
+    "boothLabel": "Booth {{number}}",
+    "zone": "Zone",
+    "genre": "Genre",
+    "rating": "Rating",
+    "viewInCatalog": "View in catalog",
+    "you": "Entrance"
+  }
+}

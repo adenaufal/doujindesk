@@ -1,0 +1,118 @@
+{
+  "editor": {
+    "title": "スペース配置",
+    "subtitle": "会場図にスペースを配置し、参加承認したサークルに割り当てます。",
+    "canvas": "会場図",
+    "hint": "ドラッグで移動、タップで編集・割り当てができます。",
+    "placeHint": "会場図をタップすると新しいスペースを置けます。",
+    "emptyTitle": "このフロアにはまだスペースがありません",
+    "emptyBody": "最初のスペースを追加するか、書き出した配置ファイルを読み込んでください。",
+    "unplaced": "未配置",
+    "unplacedBody": "{{count}} 件のスペースが未配置です。開いて座標を入力するか、一覧からドラッグしてください。",
+    "floor": "{{level}} 階",
+    "grid": "グリッド：{{size}} m",
+    "legend": "凡例"
+  },
+  "action": {
+    "addBooth": "スペースを追加",
+    "stopAdding": "追加を終了",
+    "export": "配置を書き出す",
+    "import": "配置を読み込む",
+    "clear": "配置を解除",
+    "assign": "サークルを割り当て",
+    "unassign": "割り当てを解除",
+    "delete": "スペースを削除",
+    "showOnMap": "会場図で表示",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "resetView": "表示を戻す"
+  },
+  "status": {
+    "available": "空き",
+    "occupied": "割当済み",
+    "reserved": "確保中",
+    "maintenance": "使用不可"
+  },
+  "stat": {
+    "total": "スペース数",
+    "available": "空き",
+    "occupied": "割当済み",
+    "unplaced": "未配置"
+  },
+  "filter": {
+    "search": "スペースを検索",
+    "searchPlaceholder": "スペース番号またはサークル名",
+    "status": "状態",
+    "allStatuses": "すべての状態"
+  },
+  "list": {
+    "title": "スペース一覧",
+    "count": "{{total}} 件中 {{shown}} 件",
+    "noResults": "このフロアに該当するスペースはありません。",
+    "clearSearch": "検索を消す"
+  },
+  "detail": {
+    "title": "スペース {{number}}",
+    "number": "スペース番号",
+    "type": "種別",
+    "zone": "ゾーン",
+    "status": "状態",
+    "width": "幅 (m)",
+    "height": "奥行 (m)",
+    "x": "X (m)",
+    "y": "Y (m)",
+    "floor": "フロア",
+    "circle": "サークル",
+    "noCircle": "未割当",
+    "pickCircle": "参加承認済みのサークルを選択",
+    "noCandidates": "承認済みのサークルはすべてスペースを持っています。",
+    "unplacedNote": "このスペースはまだ配置されていません。X と Y を入力するか、会場図にドラッグしてください。"
+  },
+  "clear": {
+    "title": "{{level}} 階の配置をすべて解除しますか？",
+    "body": "{{count}} 件のスペースが未配置に戻ります。スペースとサークルの割り当ては残り、配置だけが消えます。必要であれば先に書き出してください。",
+    "confirm": "配置を解除"
+  },
+  "conflict": {
+    "taken": "スペース {{booth}} は直前に {{circle}} が確保しました。",
+    "takenUnknown": "スペース {{booth}} は直前に別の主催者が割り当てました。",
+    "overlap": "その位置は {{booths}} と重なります。離してから配置してください。",
+    "overlapServer": "その位置は登録できません：スペース {{booth}} が他のスペースと重なります。",
+    "circleHasBooth": "{{circle}} はすでにスペース {{booth}} を持っています。1 サークル 1 スペースです。",
+    "duplicateNumber": "スペース番号 {{booth}} はこのイベントで使用済みです。",
+    "released": "スペース {{booth}} はすでに空きでした。"
+  },
+  "toast": {
+    "saved": "スペース {{booth}} を保存しました",
+    "created": "スペース {{booth}} を追加しました",
+    "deleted": "スペース {{booth}} を削除しました",
+    "moved": "スペース {{booth}} を移動しました",
+    "allocated": "スペース {{booth}} を {{circle}} に割り当てました",
+    "freed": "スペース {{booth}} が空きになりました",
+    "imported": "{{updated}} 件を更新し、{{created}} 件を追加しました",
+    "exported": "配置を書き出しました",
+    "cleared": "{{count}} 件の配置を解除しました"
+  },
+  "error": {
+    "loadTitle": "会場図を読み込めませんでした",
+    "importFailed": "読み込みに失敗しました"
+  },
+  "map": {
+    "title": "会場図",
+    "subtitle": "歩き出す前に、目当てのサークルの場所を確認できます。",
+    "searchPlaceholder": "サークル名・ペンネーム・スペース番号",
+    "results": "{{count}} 件",
+    "noResults": "該当するサークルやスペースはありません。",
+    "emptyTitle": "会場図はまだ公開されていません",
+    "emptyBody": "主催者がスペースを配置すると表示されます。開催が近づいたらご確認ください。",
+    "selectHint": "スペースをタップすると詳細が表示されます。",
+    "notPlaced": "{{circle}} はスペース {{booth}} ですが、まだ会場図に配置されていません。",
+    "unallocated": "未割当",
+    "boothLabel": "スペース {{number}}",
+    "zone": "ゾーン",
+    "genre": "ジャンル",
+    "rating": "レーティング",
+    "viewInCatalog": "カタログで見る",
+    "you": "入口"
+  }
+}

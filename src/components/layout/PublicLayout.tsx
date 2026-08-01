@@ -35,7 +35,7 @@ export function PublicLayout() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
           <Link
             to="/"
-            className="flex shrink-0 items-center gap-2 rounded-md py-1 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex shrink-0 items-center gap-2 rounded-md py-1 text-sm font-semibold text-foreground coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               aria-hidden="true"

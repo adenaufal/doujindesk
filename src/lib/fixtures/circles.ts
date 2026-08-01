@@ -148,7 +148,7 @@ const seeds: Seed[] = [
     space: 'circle_space_1',
     amount: 450_000,
     blurb: 'Draf — belum dikirim.',
-    owner: USER.circle,
+    owner: USER.circle3,
   },
 ]
 

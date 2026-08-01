@@ -1,11 +1,34 @@
 {
   "dashboard": {
     "title": "Dashboard",
+    "forEvent": "Live figures for {{event}}.",
     "applications": "Applications",
+    "applicationsHint_one": "{{count}} awaiting review",
+    "applicationsHint_other": "{{count}} awaiting review",
     "boothsAllocated": "Booths allocated",
+    "boothsHint_one": "{{count}} still free",
+    "boothsHint_other": "{{count}} still free",
     "ticketsSold": "Tickets sold",
+    "ticketsHint_one": "{{count}} on sale",
+    "ticketsHint_other": "{{count}} on sale",
     "checkedIn": "Checked in",
-    "revenue": "Revenue"
+    "checkedInHint": "Admitted at the doors so far",
+    "revenue": "Net revenue",
+    "revenueHint": "From the ledger, after refunds and expenses",
+    "quickActions": "Quick actions",
+    "action": {
+      "review": "Review applications",
+      "reviewBody": "Accept, waitlist or reject circles waiting on a decision.",
+      "allocate": "Allocate booths",
+      "allocateBody": "Place accepted circles on the floor plan.",
+      "announce": "Write an announcement",
+      "announceBody": "Tell circles, staff or the public what changed.",
+      "scan": "Open the scanner",
+      "scanBody": "Admit ticket holders at the gate, online or off."
+    },
+    "recent": "Recent notifications",
+    "recentEmpty": "No notifications yet",
+    "recentEmptyBody": "Applications, payments and task assignments show up here."
   },
   "review": {
     "title": "Circle applications",
@@ -50,7 +73,13 @@
     "ticketRevenue": "Ticket revenue",
     "refunds": "Refunds",
     "net": "Net",
+    "netHint": "Every group, this currency",
     "period": "Period",
+    "periodOption": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "all": "All"
+    },
     "column": {
       "date": "Date",
       "type": "Type",
@@ -62,36 +91,200 @@
     "type": {
       "circleFee": "Circle fee",
       "ticketSale": "Ticket sale",
-      "refund": "Refund"
+      "refund": "Refund",
+      "expense": "Expense",
+      "commission": "Commission"
+    },
+    "status": {
+      "pending": "Pending",
+      "failed": "Failed",
+      "refunded": "Refunded"
     },
     "total": "Total",
-    "ledgerNote": "Every figure here is summed from transaction rows."
+    "ledgerNote": "Every figure here is summed from transaction rows.",
+    "ledger": "Ledger",
+    "appendOnly": "Append-only: a correction is a reversing row, never an edit.",
+    "reverses": "Reverses an earlier transaction",
+    "netAllTime": "Net, all time",
+    "rowsShown_one": "({{count}} row shown)",
+    "rowsShown_other": "({{count}} rows shown)",
+    "transactions_one": "{{count}} transaction",
+    "transactions_other": "{{count}} transactions",
+    "pending": "{{amount}} pending",
+    "trend": "Revenue over time",
+    "trendNote": "Two charts, two scales — circle fees and ticket sales differ by orders of magnitude.",
+    "trendEmpty": "Not enough transactions to draw a trend yet.",
+    "emptyTitle": "No transactions in this period",
+    "emptyBody": "Circle payments and ticket sales appear here the moment they settle."
   },
   "staff": {
     "title": "Staff",
-    "invite": "Invite staff",
+    "subtitle": "Who is working, and what needs doing.",
+    "roster": "Roster",
+    "rosterEmpty": "No staff on this event yet",
+    "rosterEmptyBody": "Add someone who already has a DoujinDesk account to the roster.",
+    "invite": "Add staff",
+    "inviteHint": "They need a DoujinDesk account already. Email invitations are not sent from here yet.",
+    "inviteEmail": "Account email",
+    "inviteNoAccount": "No account with that email. Ask them to sign up first.",
+    "inviteAdded": "{{email}} added to the roster.",
     "role": "Role",
+    "roleOption": {
+      "organizer": "Organizer",
+      "coordinator": "Coordinator",
+      "scanner": "Scanner",
+      "volunteer": "Volunteer"
+    },
+    "statusOption": {
+      "active": "On duty",
+      "on_break": "On break",
+      "inactive": "Off duty"
+    },
+    "changeStatus": "Change status",
+    "onDuty": "{{count}} on duty of {{total}}",
     "tasks": "Tasks",
+    "tasksEmpty": "No tasks yet",
+    "tasksEmptyBody": "Add the jobs that have to happen before doors open.",
+    "openTasks_one": "{{count}} task open",
+    "openTasks_other": "{{count}} tasks open",
     "addTask": "Add task",
+    "addTaskHint": "Assign it now, or leave it unassigned and pick it up later.",
+    "taskTitle": "What needs doing",
+    "taskAdded": "Task added.",
     "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "location": "Location",
     "due": "Due",
     "done": "Done",
-    "open": "Open"
+    "open": "Open",
+    "complete": "Mark done",
+    "priorityLabel": "Priority",
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "taskStatus": {
+      "pending": "To do",
+      "in_progress": "In progress",
+      "completed": "Done",
+      "cancelled": "Cancelled"
+    }
+  },
+  "tasks": {
+    "title": "My tasks",
+    "subtitle_one": "{{count}} thing to do.",
+    "subtitle_other": "{{count}} things to do.",
+    "empty": "Nothing assigned to you",
+    "emptyBody": "When a coordinator assigns you a job it appears here.",
+    "start": "Start",
+    "complete": "Done",
+    "reopen": "Reopen",
+    "done_one": "{{count}} completed",
+    "done_other": "{{count}} completed",
+    "overdue": "Overdue — {{when}}"
   },
   "announcement": {
     "title": "Announcements",
+    "subtitle": "One message, three languages, sent to the audience you choose.",
     "compose": "New announcement",
+    "composeHint": "English is the fallback every reader gets, so it is required.",
     "subject": "Subject",
     "body": "Message",
     "audience": "Audience",
+    "audienceOption": {
+      "public": "Public",
+      "attendee": "Attendees",
+      "circle": "Circles",
+      "staff": "Staff"
+    },
+    "severityLabel": "Severity",
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "archived": "Archived"
+    },
     "publish": "Publish",
     "published": "Published {{date}}",
-    "draft": "Draft"
+    "publishedOk": "Announcement published.",
+    "notScheduled": "Not scheduled",
+    "pin": "Pin to the top",
+    "pinned": "Pinned",
+    "draft": "Draft",
+    "required": "An English subject and message are required, and at least one audience.",
+    "empty": "No announcements yet",
+    "emptyBody": "Doors-open times, layout changes, weather — anything everyone needs at once."
   },
   "queue": {
     "title": "Queue",
+    "subtitle": "Live lane lengths and the door counter.",
     "waiting": "Waiting",
+    "waitingHint": "Across every open lane",
     "insideVenue": "Inside venue",
-    "throughput": "Per hour"
+    "insideVenueHint": "Admitted at the doors so far",
+    "throughput": "Per hour",
+    "alerts": "Alerts",
+    "alertsHint": "Lanes needing attention",
+    "noAlerts": "Everything within thresholds",
+    "lanes": "Lanes",
+    "empty": "No queues set up",
+    "emptyBody": "Add a lane per gate or popular circle to track waiting times.",
+    "updated": "Counter updated {{when}}",
+    "waitMinutes_one": "{{count}} min wait",
+    "waitMinutes_other": "{{count}} min wait",
+    "capacityLabel": "{{name}} capacity used",
+    "increase": "Add 10 people to {{name}}",
+    "decrease": "Remove 10 people from {{name}}",
+    "changeStatus": "Change lane status",
+    "status": {
+      "open": "Open",
+      "paused": "Paused",
+      "closed": "Closed"
+    },
+    "type": {
+      "entry": "Entry",
+      "circle": "Circle",
+      "merchandise": "Merchandise",
+      "food": "Food",
+      "service": "Service"
+    },
+    "alert": {
+      "nearCapacity": "{{percent}}% of capacity — consider opening another lane.",
+      "longWait_one": "{{count}} minute wait.",
+      "longWait_other": "{{count}} minute wait.",
+      "pausedWithPeople_one": "Paused with {{count}} person still waiting.",
+      "pausedWithPeople_other": "Paused with {{count}} people still waiting."
+    }
+  },
+  "notify": {
+    "title": "Notifications",
+    "subtitle": "Everything addressed to you, newest first.",
+    "all": "All",
+    "unread": "Unread",
+    "unreadCount_one": "Unread ({{count}})",
+    "unreadCount_other": "Unread ({{count}})",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "archive": "Archive",
+    "empty": "Your inbox is empty",
+    "emptyBody": "Applications, payments, tasks and announcements land here.",
+    "emptyUnread": "Nothing unread",
+    "emptyUnreadBody": "You are caught up.",
+    "category": {
+      "announcement": "Announcement",
+      "application": "Application",
+      "payment": "Payment",
+      "booth": "Booth",
+      "ticket": "Ticket",
+      "task": "Task",
+      "system": "System"
+    }
   }
 }

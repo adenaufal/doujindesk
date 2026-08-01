@@ -110,7 +110,16 @@ export function useWrite<TArgs, TResult>(
     mutationFn: run,
     ...options,
     onSuccess: (data, args, ...rest) => {
-      for (const queryKey of invalidate(args)) void client.invalidateQueries({ queryKey })
+      // A trailing `null` is the key factory's "no filters" sentinel. It is a
+      // cache discriminator, never an invalidation one: `['circles', id, null]`
+      // does not prefix-match the `['circles', id, {}]` a filtered list caches
+      // under, so invalidating with the sentinel present silently matches
+      // nothing and the screen keeps rendering the row it just changed.
+      // Dropping it turns the key into the prefix that matches every variant.
+      for (const key of invalidate(args)) {
+        const queryKey = key.at(-1) === null ? key.slice(0, -1) : key
+        void client.invalidateQueries({ queryKey })
+      }
       ;(options?.onSuccess as ((...a: unknown[]) => void) | undefined)?.(data, args, ...rest)
     },
   })

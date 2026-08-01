@@ -15,7 +15,6 @@ import { initAuth } from './stores/authStore'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import AnnouncementSystem from './components/AnnouncementSystem'
-import AttendeeRegistration from './components/AttendeeRegistration'
 import BoothAllocation from './components/BoothAllocation'
 import CircleApplicationForm from './components/CircleApplicationForm'
 import CircleCatalog from './components/CircleCatalog'
@@ -29,7 +28,10 @@ import NotificationCenter from './components/NotificationCenter'
 import QueueStatus from './components/QueueStatus'
 import StaffCoordination from './components/StaffCoordination'
 import TicketScanner from './components/TicketScanner'
+import TicketWallet from './components/TicketWallet'
 import TicketingSystem from './components/TicketingSystem'
+import CircleStatus from './pages/CircleStatus'
+import StaffTasks from './pages/StaffTasks'
 
 // -----------------------------------------------------------------------------
 // Route table. Guards and chrome nest together as layout routes, so there is no
@@ -68,14 +70,13 @@ function App() {
             </RequireRole>
           }
         >
-          {/* ponytail: AttendeeRegistration is the closest thing to a wallet
-              that exists today. P13 replaces this element with TicketWallet. */}
-          <Route path="/wallet" element={<AttendeeRegistration />} />
+          {/* No `:eventId` — the wallet resolves one itself and offers a picker
+              when the attendee holds passes for more than one event. */}
+          <Route path="/wallet" element={<TicketWallet />} />
         </Route>
 
-        {/* Circle. `/circle/status` arrives with P11 (src/pages/CircleStatus.tsx,
-            which that package owns) — routing to a file that does not exist yet
-            would only break the build. */}
+        {/* Circle. The apply route renders CircleStatus itself once an
+            application exists, so an applicant is never shown an empty form. */}
         <Route
           element={
             <RequireRole roles={['circle']}>
@@ -84,6 +85,7 @@ function App() {
           }
         >
           <Route path="/e/:eventId/apply" element={<ApplyRoute />} />
+          <Route path="/e/:eventId/status" element={<CircleStatus />} />
         </Route>
 
         {/* Staff scanner — Focus layout, no chrome to mis-tap at the door. */}
@@ -107,9 +109,9 @@ function App() {
           }
         >
           <Route path="/e/:eventId/queue" element={<QueueStatus />} />
-          {/* ponytail: the staff task list is a StaffCoordination tab today.
-              P14 owns src/pages/StaffTasks.tsx and swaps this element. */}
-          <Route path="/tasks" element={<StaffCoordination />} />
+          {/* Not event-scoped: a staffer lands here on sign-in, before picking
+              an event. The task query scopes on `assigned_to @> [me]` instead. */}
+          <Route path="/tasks" element={<StaffTasks />} />
           <Route path="/notifications" element={<NotificationCenter />} />
         </Route>
 

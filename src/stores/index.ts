@@ -1,13 +1,12 @@
 /**
- * Zustand holds CLIENT state only: the session, the scanner's device settings,
- * UI toggles. Server data lives in TanStack Query — `@/lib/queries`.
+ * Zustand holds CLIENT state only: the session and UI toggles. Server data
+ * lives in TanStack Query — `@/lib/queries`.
  *
- * `circleStore`, `ticketStore`, `financialStore` and `staffStore` are hand-rolled
- * caches of server rows and are on their way out; they are not exported here so
- * nothing new picks them up. See PROGRESS.md for which package deletes which.
+ * `circleStore`, `ticketStore`, `financialStore`, `staffStore` and `eventStore`
+ * were hand-rolled caches of server rows. All five are deleted; the active event
+ * is `:eventId` from the URL, read with `useParams`, never copied into a store.
  */
 export { useAuthStore, type AppRole } from './authStore'
-export { useEventStore } from './eventStore'
 
 /** Domain unions live with the schema now. */
 export type {

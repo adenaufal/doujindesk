@@ -1,11 +1,31 @@
 {
   "dashboard": {
     "title": "ダッシュボード",
+    "forEvent": "{{event}} の最新の数値です。",
     "applications": "申込数",
+    "applicationsHint_other": "審査待ち {{count}}件",
     "boothsAllocated": "配置済みブース",
+    "boothsHint_other": "空き {{count}}区画",
     "ticketsSold": "チケット販売数",
+    "ticketsHint_other": "販売中 {{count}}枚",
     "checkedIn": "入場者数",
-    "revenue": "売上"
+    "checkedInHint": "これまでに入場した人数",
+    "revenue": "純売上",
+    "revenueHint": "取引明細から、返金と経費を差し引いた額",
+    "quickActions": "クイック操作",
+    "action": {
+      "review": "申込を審査する",
+      "reviewBody": "審査待ちのサークルを当選・補欠・落選に振り分けます。",
+      "allocate": "ブースを配置する",
+      "allocateBody": "当選したサークルを会場図に配置します。",
+      "announce": "お知らせを書く",
+      "announceBody": "変更点をサークル・スタッフ・一般に伝えます。",
+      "scan": "スキャナーを開く",
+      "scanBody": "ゲートで入場処理を行います。オフラインでも動作します。"
+    },
+    "recent": "最近の通知",
+    "recentEmpty": "通知はまだありません",
+    "recentEmptyBody": "申込・入金・タスク割り当てはここに表示されます。"
   },
   "review": {
     "title": "サークル申込",
@@ -49,7 +69,13 @@
     "ticketRevenue": "チケット売上",
     "refunds": "返金",
     "net": "純額",
+    "netHint": "この通貨の全区分の合計",
     "period": "期間",
+    "periodOption": {
+      "7d": "7日間",
+      "30d": "30日間",
+      "all": "全期間"
+    },
     "column": {
       "date": "日付",
       "type": "種別",
@@ -61,36 +87,191 @@
     "type": {
       "circleFee": "参加費",
       "ticketSale": "チケット",
-      "refund": "返金"
+      "refund": "返金",
+      "expense": "経費",
+      "commission": "手数料収入"
+    },
+    "status": {
+      "pending": "未確定",
+      "failed": "失敗",
+      "refunded": "返金済み"
     },
     "total": "合計",
-    "ledgerNote": "この画面の金額はすべて取引明細の集計です。"
+    "ledgerNote": "この画面の金額はすべて取引明細の集計です。",
+    "ledger": "取引明細",
+    "appendOnly": "追記のみ。訂正は逆仕訳で行い、編集はできません。",
+    "reverses": "過去の取引を取り消す仕訳です",
+    "netAllTime": "純額（全期間）",
+    "rowsShown_other": "（{{count}}件を表示）",
+    "transactions_other": "{{count}}件の取引",
+    "pending": "未確定 {{amount}}",
+    "trend": "売上の推移",
+    "trendNote": "参加費とチケット売上は桁が違うため、軸を分けた2つのグラフで表示します。",
+    "trendEmpty": "推移を描くにはデータが不足しています。",
+    "emptyTitle": "この期間の取引はありません",
+    "emptyBody": "参加費とチケット売上は決済が確定した時点でここに表示されます。"
   },
   "staff": {
     "title": "スタッフ",
-    "invite": "スタッフを招待",
+    "subtitle": "誰が稼働していて、何をすべきか。",
+    "roster": "名簿",
+    "rosterEmpty": "このイベントのスタッフはまだいません",
+    "rosterEmptyBody": "DoujinDesk のアカウントを持っている人を名簿に追加してください。",
+    "invite": "スタッフを追加",
+    "inviteHint": "先に DoujinDesk のアカウント登録が必要です。ここからの招待メール送信は未対応です。",
+    "inviteEmail": "アカウントのメールアドレス",
+    "inviteNoAccount": "そのメールアドレスのアカウントが見つかりません。先に登録を依頼してください。",
+    "inviteAdded": "{{email}} を名簿に追加しました。",
     "role": "権限",
+    "roleOption": {
+      "organizer": "主催",
+      "coordinator": "統括",
+      "scanner": "入場係",
+      "volunteer": "ボランティア"
+    },
+    "statusOption": {
+      "active": "稼働中",
+      "on_break": "休憩中",
+      "inactive": "退勤"
+    },
+    "changeStatus": "状態を変更",
+    "onDuty": "稼働中 {{count}} / {{total}}",
     "tasks": "タスク",
+    "tasksEmpty": "タスクはまだありません",
+    "tasksEmptyBody": "開場までに済ませる作業を追加しましょう。",
+    "openTasks_other": "未完了 {{count}}件",
     "addTask": "タスクを追加",
+    "addTaskHint": "担当者は今決めても、後から決めても構いません。",
+    "taskTitle": "作業内容",
+    "taskAdded": "タスクを追加しました。",
     "assignee": "担当者",
+    "unassigned": "未割り当て",
+    "location": "場所",
     "due": "期限",
     "done": "完了",
-    "open": "未完了"
+    "open": "未完了",
+    "complete": "完了にする",
+    "priorityLabel": "優先度",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "critical": "最優先"
+    },
+    "taskStatus": {
+      "pending": "未着手",
+      "in_progress": "作業中",
+      "completed": "完了",
+      "cancelled": "取消"
+    }
+  },
+  "tasks": {
+    "title": "自分のタスク",
+    "subtitle_other": "やること {{count}}件。",
+    "empty": "割り当てられたタスクはありません",
+    "emptyBody": "統括から作業が割り当てられるとここに表示されます。",
+    "start": "着手",
+    "complete": "完了",
+    "reopen": "再開",
+    "done_other": "完了 {{count}}件",
+    "overdue": "期限超過 — {{when}}"
   },
   "announcement": {
     "title": "お知らせ",
+    "subtitle": "ひとつの内容を3言語で、選んだ相手にだけ配信します。",
     "compose": "新規のお知らせ",
+    "composeHint": "英語はすべての読者への代替表示になるため必須です。",
     "subject": "件名",
     "body": "本文",
     "audience": "配信先",
+    "audienceOption": {
+      "public": "一般公開",
+      "attendee": "来場者",
+      "circle": "サークル",
+      "staff": "スタッフ"
+    },
+    "severityLabel": "重要度",
+    "severity": {
+      "info": "お知らせ",
+      "warning": "注意",
+      "critical": "緊急"
+    },
+    "status": {
+      "draft": "下書き",
+      "scheduled": "予約済み",
+      "published": "公開中",
+      "archived": "アーカイブ"
+    },
     "publish": "公開",
     "published": "{{date}} に公開",
-    "draft": "下書き"
+    "publishedOk": "お知らせを公開しました。",
+    "notScheduled": "公開日時は未設定",
+    "pin": "先頭に固定",
+    "pinned": "固定中",
+    "draft": "下書き",
+    "required": "英語の件名と本文、および配信先を1つ以上指定してください。",
+    "empty": "お知らせはまだありません",
+    "emptyBody": "開場時刻・配置変更・天候など、全員に一度に伝えたいことを書きます。"
   },
   "queue": {
     "title": "待機列",
+    "subtitle": "各列の待機人数と入場カウンター。",
     "waiting": "待機中",
+    "waitingHint": "開いているすべての列の合計",
     "insideVenue": "入場中",
-    "throughput": "1時間あたり"
+    "insideVenueHint": "これまでに入場した人数",
+    "throughput": "1時間あたり",
+    "alerts": "アラート",
+    "alertsHint": "対応が必要な列",
+    "noAlerts": "すべて基準内です",
+    "lanes": "各列",
+    "empty": "待機列が未設定です",
+    "emptyBody": "ゲートや人気サークルごとに列を作ると待ち時間を追跡できます。",
+    "updated": "カウンター更新 {{when}}",
+    "waitMinutes_other": "待ち {{count}}分",
+    "capacityLabel": "{{name}} の収容率",
+    "increase": "{{name}} に10人追加",
+    "decrease": "{{name}} から10人減らす",
+    "changeStatus": "列の状態を変更",
+    "status": {
+      "open": "開放中",
+      "paused": "一時停止",
+      "closed": "終了"
+    },
+    "type": {
+      "entry": "入場",
+      "circle": "サークル",
+      "merchandise": "物販",
+      "food": "飲食",
+      "service": "案内"
+    },
+    "alert": {
+      "nearCapacity": "収容率{{percent}}%です。別の列を開くことを検討してください。",
+      "longWait_other": "待ち時間{{count}}分です。",
+      "pausedWithPeople_other": "{{count}}人が待機したまま一時停止しています。"
+    }
+  },
+  "notify": {
+    "title": "通知",
+    "subtitle": "自分宛の通知を新しい順に表示します。",
+    "all": "すべて",
+    "unread": "未読",
+    "unreadCount_other": "未読（{{count}}）",
+    "markRead": "既読にする",
+    "markAllRead": "すべて既読にする",
+    "archive": "アーカイブ",
+    "empty": "受信箱は空です",
+    "emptyBody": "申込・入金・タスク・お知らせがここに届きます。",
+    "emptyUnread": "未読はありません",
+    "emptyUnreadBody": "すべて確認済みです。",
+    "category": {
+      "announcement": "お知らせ",
+      "application": "申込",
+      "payment": "入金",
+      "booth": "ブース",
+      "ticket": "チケット",
+      "task": "タスク",
+      "system": "システム"
+    }
   }
 }

@@ -1,819 +1,621 @@
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Badge } from './ui/badge'
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { 
-  Search, 
-  Filter, 
-  Heart, 
-  Star, 
-  MapPin, 
-  Clock, 
+import { useMemo, useState } from 'react'
+import {
   ExternalLink,
-  Instagram,
-  Twitter,
-  Globe,
-  Mail,
-  Calendar,
-  Bookmark,
-  Share2,
-  Eye,
-  Grid,
-  List,
-  SortAsc,
-  SortDesc
+  Filter,
+  Link2,
+  Map as MapIcon,
+  Search,
+  ShoppingBag,
+  Users,
+  X,
 } from 'lucide-react'
-// import { useCircleStore } from '../stores/circleStore'
+import { useTranslation } from 'react-i18next'
+import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
-interface CircleProfile {
-  id: string
-  circle_name: string
-  representative_name: string
-  booth_number?: string
-  booth_type: 'space' | 'booth'
-  booth_size: '1_space' | '2_space' | '4_space' | 'booth_a' | 'booth_b'
-  category: string
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { EmptyState } from './ui/empty-state'
+import { Input } from './ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { useCircleCatalog } from '@/lib/queries'
+import type { CircleCatalogRow } from '@/lib/database.types'
+
+/**
+ * The public circle catalog.
+ *
+ * READS `circle_catalog`, NEVER `circles` — through `useCircleCatalog`. The base
+ * row carries email, phone, address and two emergency contacts; the view's column
+ * list is the access control, and this screen is the reason it exists.
+ *
+ * ponytail: search and facets filter the cached array client-side instead of
+ * round-tripping PostgREST per keystroke. One fetch per 5 minutes, instant
+ * typing, and it keeps working when the venue wifi dies mid-browse. Ceiling: the
+ * whole catalog sits in memory — fine at the ~1k circles a hall holds, not fine
+ * at 10k. Upgrade path: `useCircleCatalog(eventId, { search })` already pushes an
+ * `or(ilike)` to the server; switch to it and add a range.
+ */
+
+type FacetKey = 'genre' | 'fandom' | 'block' | 'rating'
+
+interface Selection {
   genre: string[]
   fandom: string[]
-  description: string
-  sample_works: string[]
-  social_media: {
-    website?: string
-    twitter?: string
-    instagram?: string
-    email?: string
-  }
-  rating: number
-  favorites: number
-  views: number
-  comments: number
-  featured: boolean
-  new_circle: boolean
-  opening_hours?: string
-  special_events?: string[]
-  collaboration?: boolean
-  international?: boolean
-  accessibility_friendly?: boolean
-  payment_methods: string[]
-  languages: string[]
-  preview_image?: string
-  status: 'confirmed' | 'pending' | 'cancelled'
+  block: string[]
+  rating: string[]
+  shopOnly: boolean
 }
 
-const CircleCatalog: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedGenre, setSelectedGenre] = useState('all')
-  const [selectedFandom, setSelectedFandom] = useState('all')
-  const [sortBy, setSortBy] = useState('name')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [showFilters, setShowFilters] = useState(false)
-  const [favoriteCircles, setFavoriteCircles] = useState<Set<string>>(new Set())
-  const [bookmarkedCircles, setBookmarkedCircles] = useState<Set<string>>(new Set())
-  const [selectedCircle, setSelectedCircle] = useState<CircleProfile | null>(null)
-  
-  // Mock circle data
-  const [circles] = useState<CircleProfile[]>([
-    {
-      id: 'circle-001',
-      circle_name: 'Sakura Studios',
-      representative_name: 'Yuki Tanaka',
-      booth_number: 'A-15',
-      booth_type: 'space',
-      booth_size: '2_space',
-      category: 'Original',
-      genre: ['Illustration', 'Manga'],
-      fandom: ['Original Work'],
-      description: 'Creating beautiful original illustrations and short manga stories with focus on slice-of-life themes.',
-      sample_works: ['/samples/sakura-1.jpg', '/samples/sakura-2.jpg'],
-      social_media: {
-        website: 'https://sakurastudios.com',
-        twitter: '@sakurastudios',
-        instagram: '@sakura_studios_art'
-      },
-      rating: 4.8,
-      favorites: 1250,
-      views: 8500,
-      comments: 45,
-      featured: true,
-      new_circle: false,
-      opening_hours: '10:00 - 18:00',
-      special_events: ['Live Drawing Demo at 14:00'],
-      collaboration: false,
-      international: false,
-      accessibility_friendly: true,
-      payment_methods: ['Cash', 'Card', 'Digital'],
-      languages: ['Japanese', 'English'],
-      preview_image: '/previews/sakura-preview.jpg',
-      status: 'confirmed'
-    },
-    {
-      id: 'circle-002',
-      circle_name: 'Neon Dreams',
-      representative_name: 'Alex Chen',
-      booth_number: 'B-42',
-      booth_type: 'booth',
-      booth_size: 'booth_a',
-      category: 'Fan Art',
-      genre: ['Digital Art', 'Prints'],
-      fandom: ['Cyberpunk 2077', 'Ghost in the Shell', 'Akira'],
-      description: 'Cyberpunk and sci-fi themed artwork with neon aesthetics and futuristic designs.',
-      sample_works: ['/samples/neon-1.jpg', '/samples/neon-2.jpg', '/samples/neon-3.jpg'],
-      social_media: {
-        twitter: '@neondreams_art',
-        instagram: '@neon_dreams_official',
-        email: 'contact@neondreams.art'
-      },
-      rating: 4.6,
-      favorites: 890,
-      views: 5200,
-      comments: 32,
-      featured: false,
-      new_circle: true,
-      opening_hours: '09:00 - 19:00',
-      collaboration: true,
-      international: true,
-      accessibility_friendly: true,
-      payment_methods: ['Cash', 'Card'],
-      languages: ['English', 'Chinese'],
-      preview_image: '/previews/neon-preview.jpg',
-      status: 'confirmed'
-    },
-    {
-      id: 'circle-003',
-      circle_name: 'Kawaii Crafts',
-      representative_name: 'Miku Sato',
-      booth_number: 'C-08',
-      booth_type: 'space',
-      booth_size: '1_space',
-      category: 'Crafts',
-      genre: ['Accessories', 'Plushies', 'Keychains'],
-      fandom: ['Vocaloid', 'Sanrio', 'Pokemon'],
-      description: 'Handmade kawaii accessories, plushies, and collectibles featuring popular characters.',
-      sample_works: ['/samples/kawaii-1.jpg', '/samples/kawaii-2.jpg'],
-      social_media: {
-        instagram: '@kawaii_crafts_jp',
-        twitter: '@kawaiicrafts'
-      },
-      rating: 4.9,
-      favorites: 2100,
-      views: 12000,
-      comments: 78,
-      featured: true,
-      new_circle: false,
-      opening_hours: '10:00 - 17:00',
-      special_events: ['Plushie Making Workshop at 15:00'],
-      collaboration: false,
-      international: false,
-      accessibility_friendly: false,
-      payment_methods: ['Cash'],
-      languages: ['Japanese'],
-      preview_image: '/previews/kawaii-preview.jpg',
-      status: 'confirmed'
-    },
-    {
-      id: 'circle-004',
-      circle_name: 'Retro Gaming Art',
-      representative_name: 'David Kim',
-      booth_number: 'D-23',
-      booth_type: 'booth',
-      booth_size: 'booth_b',
-      category: 'Fan Art',
-      genre: ['Pixel Art', 'Posters', 'Stickers'],
-      fandom: ['Nintendo', 'Sega', 'Arcade Games'],
-      description: 'Nostalgic pixel art and retro gaming inspired artwork celebrating classic video games.',
-      sample_works: ['/samples/retro-1.jpg', '/samples/retro-2.jpg'],
-      social_media: {
-        website: 'https://retrogamingart.com',
-        twitter: '@retrogamingart',
-        email: 'info@retrogamingart.com'
-      },
-      rating: 4.7,
-      favorites: 1580,
-      views: 9800,
-      comments: 56,
-      featured: false,
-      new_circle: false,
-      opening_hours: '09:30 - 18:30',
-      collaboration: false,
-      international: true,
-      accessibility_friendly: true,
-      payment_methods: ['Cash', 'Card', 'Digital'],
-      languages: ['English', 'Korean'],
-      preview_image: '/previews/retro-preview.jpg',
-      status: 'confirmed'
-    }
-  ])
+const EMPTY: Selection = { genre: [], fandom: [], block: [], rating: [], shopOnly: false }
+const FACET_KEYS: FacetKey[] = ['genre', 'fandom', 'block', 'rating']
 
-  const categories = ['all', 'Original', 'Fan Art', 'Crafts', 'Music', 'Games', 'Literature']
-  const genres = ['all', 'Illustration', 'Manga', 'Digital Art', 'Prints', 'Accessories', 'Plushies', 'Keychains', 'Pixel Art', 'Posters', 'Stickers']
-  const fandoms = ['all', 'Original Work', 'Cyberpunk 2077', 'Ghost in the Shell', 'Akira', 'Vocaloid', 'Sanrio', 'Pokemon', 'Nintendo', 'Sega', 'Arcade Games']
-  const sortOptions = [
-    { value: 'name', label: 'Name' },
-    { value: 'rating', label: 'Rating' },
-    { value: 'favorites', label: 'Favorites' },
-    { value: 'views', label: 'Views' },
-    { value: 'booth_number', label: 'Booth Number' }
+const blockOf = (row: CircleCatalogRow) => row.booth_number?.split('-')[0] ?? ''
+const hasShop = (row: CircleCatalogRow) => Boolean(row.marketplace_link ?? row.social_media_website)
+
+/** `circles.rating` is an AGE rating (all_ages | r15 | r18), never a star score. */
+function ratingLabel(value: string): string {
+  if (value === 'all_ages') return 'All ages'
+  if (value === 'r15') return 'R15'
+  if (value === 'r18') return 'R18'
+  return value
+}
+
+function facetValue(row: CircleCatalogRow, key: FacetKey): string {
+  switch (key) {
+    case 'genre':
+      return row.genre ?? ''
+    case 'fandom':
+      return row.fandom ?? ''
+    case 'block':
+      return blockOf(row)
+    case 'rating':
+      return row.rating ?? ''
+  }
+}
+
+export default function CircleCatalog() {
+  const { eventId } = useParams()
+  const { t, i18n } = useTranslation(['catalog', 'common'])
+  const { data, isLoading, error, isEmpty, refetch } = useCircleCatalog(eventId)
+
+  const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<Selection>(EMPTY)
+  const [sort, setSort] = useState<'reading' | 'name' | 'booth'>(
+    i18n.language.startsWith('ja') ? 'reading' : 'name',
+  )
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [revealed, setRevealed] = useState<Set<string>>(new Set())
+  const [detail, setDetail] = useState<CircleCatalogRow | null>(null)
+
+  const collator = useMemo(
+    () => new Intl.Collator(i18n.language, { numeric: true, sensitivity: 'base' }),
+    [i18n.language],
+  )
+
+  const rows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const matches = data.filter((row) => {
+      if (needle) {
+        const hay = [
+          row.circle_name,
+          row.circle_name_furigana,
+          row.pen_name,
+          row.booth_number,
+          row.genre,
+          row.fandom,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!hay.includes(needle)) return false
+      }
+      for (const key of FACET_KEYS) {
+        const picked = selected[key]
+        if (picked.length && !picked.includes(facetValue(row, key))) return false
+      }
+      if (selected.shopOnly && !hasShop(row)) return false
+      return true
+    })
+
+    return [...matches].sort((a, b) => {
+      if (sort === 'booth') return collator.compare(a.booth_number ?? 'zz', b.booth_number ?? 'zz')
+      // `circle_name_sort_key` is the kana-folded key a trigger maintains, because
+      // Postgres orders kanji by code point and that is not 五十音.
+      if (sort === 'reading') {
+        return collator.compare(
+          a.circle_name_sort_key ?? a.circle_name,
+          b.circle_name_sort_key ?? b.circle_name,
+        )
+      }
+      return collator.compare(a.circle_name, b.circle_name)
+    })
+  }, [data, query, selected, sort, collator])
+
+  const facets = useMemo(() => {
+    const build = (key: FacetKey) => {
+      const counts = new Map<string, number>()
+      for (const row of data) {
+        const value = facetValue(row, key)
+        if (value) counts.set(value, (counts.get(value) ?? 0) + 1)
+      }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1])
+    }
+    return {
+      genre: build('genre'),
+      fandom: build('fandom'),
+      block: build('block'),
+      rating: build('rating'),
+      shop: data.filter(hasShop).length,
+    }
+  }, [data])
+
+  const activeChips: { key: FacetKey | 'shopOnly'; value: string; label: string }[] = [
+    ...FACET_KEYS.flatMap((key) =>
+      selected[key].map((value) => ({
+        key,
+        value,
+        label: key === 'rating' ? ratingLabel(value) : value,
+      })),
+    ),
+    ...(selected.shopOnly
+      ? [{ key: 'shopOnly' as const, value: '', label: t('filter.onlineShop') }]
+      : []),
   ]
 
-  // Filter and sort circles
-  const filteredCircles = circles
-    .filter(circle => {
-      const matchesSearch = 
-        circle.circle_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        circle.representative_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        circle.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        circle.genre.some(g => g.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        circle.fandom.some(f => f.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        circle.booth_number?.toLowerCase().includes(searchQuery.toLowerCase())
-      
-      const matchesCategory = selectedCategory === 'all' || circle.category === selectedCategory
-      const matchesGenre = selectedGenre === 'all' || circle.genre.includes(selectedGenre)
-      const matchesFandom = selectedFandom === 'all' || circle.fandom.includes(selectedFandom)
-      
-      return matchesSearch && matchesCategory && matchesGenre && matchesFandom
-    })
-    .sort((a, b) => {
-      let aValue: any = a[sortBy as keyof CircleProfile]
-      let bValue: any = b[sortBy as keyof CircleProfile]
-      
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
+  function toggle(key: FacetKey, value: string) {
+    setSelected((prev) => {
+      const picked = prev[key]
+      return {
+        ...prev,
+        [key]: picked.includes(value) ? picked.filter((v) => v !== value) : [...picked, value],
       }
-      
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-      }
-    })
-
-  const toggleFavorite = (circleId: string) => {
-    setFavoriteCircles(prev => {
-      const newFavorites = new Set(prev)
-      if (newFavorites.has(circleId)) {
-        newFavorites.delete(circleId)
-      } else {
-        newFavorites.add(circleId)
-      }
-      return newFavorites
     })
   }
 
-  const toggleBookmark = (circleId: string) => {
-    setBookmarkedCircles(prev => {
-      const newBookmarks = new Set(prev)
-      if (newBookmarks.has(circleId)) {
-        newBookmarks.delete(circleId)
-      } else {
-        newBookmarks.add(circleId)
-      }
-      return newBookmarks
-    })
-  }
-
-  const shareCircle = (circle: CircleProfile) => {
-    if (navigator.share) {
-      navigator.share({
-        title: circle.circle_name,
-        text: circle.description,
-        url: `${window.location.origin}/circles/${circle.id}`
-      })
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${window.location.origin}/circles/${circle.id}`)
-      alert('Link copied to clipboard!')
+  async function share(row: CircleCatalogRow) {
+    const url = `${window.location.origin}/e/${eventId}/catalog?circle=${row.id}`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success(t('card.shared'))
+    } catch {
+      toast.error(t('common:error.generic'))
     }
   }
 
-  const getBoothTypeDisplay = (type: string, size: string) => {
-    if (type === 'space') {
-      return `Circle Space (${size.replace('_', ' ').toUpperCase()})`
-    } else {
-      return `Circle Booth (${size.replace('_', ' ').toUpperCase()})`
-    }
-  }
-
-  const CircleCard: React.FC<{ circle: CircleProfile; compact?: boolean }> = ({ circle, compact = false }) => {
-    const isFavorite = favoriteCircles.has(circle.id)
-    const isBookmarked = bookmarkedCircles.has(circle.id)
-
-    return (
-      <Card className={`cursor-pointer transition-all hover:shadow-lg ${compact ? 'h-auto' : 'h-full'}`}>
-        <CardHeader className={compact ? 'pb-2' : 'pb-4'}>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-1">
-                <CardTitle className={`${compact ? 'text-base' : 'text-lg'}`}>{circle.circle_name}</CardTitle>
-                {circle.featured && (
-                  <Badge className="bg-yellow-500">
-                    <Star className="h-3 w-3 mr-1" />
-                    Featured
-                  </Badge>
-                )}
-                {circle.new_circle && (
-                  <Badge variant="secondary">New</Badge>
-                )}
-              </div>
-              <CardDescription className={compact ? 'text-xs' : 'text-sm'}>
-                by {circle.representative_name}
-              </CardDescription>
-              {circle.booth_number && (
-                <div className="flex items-center space-x-1 mt-1">
-                  <MapPin className="h-3 w-3 text-gray-500" />
-                  <span className="text-xs text-gray-600">{circle.booth_number}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex space-x-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleFavorite(circle.id)
-                }}
-                className={isFavorite ? 'text-red-600' : 'text-gray-400'}
-              >
-                <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleBookmark(circle.id)
-                }}
-                className={isBookmarked ? 'text-blue-600' : 'text-gray-400'}
-              >
-                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className={compact ? 'pt-0' : ''}>
-          {/* Preview Image */}
-          {!compact && circle.preview_image && (
-            <div className="w-full h-32 bg-gray-200 rounded mb-3 overflow-hidden">
-              <img 
-                src={circle.preview_image} 
-                alt={`${circle.circle_name} preview`}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NyA0OEw5MyA1NEw5OSA0OEwxMDUgNTRMMTExIDQ4TDExNyA1NEwxMjMgNDhMMTI5IDU0TDEzNSA0OEwxNDEgNTRMMTQ3IDQ4TDE1MyA1NEwxNTkgNDhMMTY1IDU0TDE3MSA0OEwxNzcgNTQiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iNzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM2QjcyODAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiI+Tm8gUHJldmlldyBBdmFpbGFibGU8L3RleHQ+Cjwvc3ZnPgo='
-                }}
-              />
-            </div>
-          )}
-          
-          {/* Description */}
-          <p className={`text-gray-600 mb-3 ${compact ? 'text-xs line-clamp-2' : 'text-sm line-clamp-3'}`}>
-            {circle.description}
-          </p>
-          
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1 mb-3">
-            <Badge variant="outline" className="text-xs">{circle.category}</Badge>
-            {circle.genre.slice(0, compact ? 1 : 2).map((genre) => (
-              <Badge key={genre} variant="secondary" className="text-xs">{genre}</Badge>
-            ))}
-            {circle.genre.length > (compact ? 1 : 2) && (
-              <Badge variant="secondary" className="text-xs">+{circle.genre.length - (compact ? 1 : 2)}</Badge>
-            )}
-          </div>
-          
-          {/* Stats */}
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
-                <Star className="h-3 w-3 text-yellow-500" />
-                <span>{circle.rating}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Heart className="h-3 w-3" />
-                <span>{circle.favorites}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Eye className="h-3 w-3" />
-                <span>{circle.views}</span>
-              </div>
-            </div>
-            {circle.opening_hours && (
-              <div className="flex items-center space-x-1">
-                <Clock className="h-3 w-3" />
-                <span>{circle.opening_hours}</span>
-              </div>
-            )}
-          </div>
-          
-          {/* Features */}
-          {!compact && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {circle.international && (
-                <Badge variant="outline" className="text-xs">International</Badge>
-              )}
-              {circle.collaboration && (
-                <Badge variant="outline" className="text-xs">Collaboration</Badge>
-              )}
-              {circle.accessibility_friendly && (
-                <Badge variant="outline" className="text-xs">Accessible</Badge>
-              )}
-            </div>
-          )}
-          
-          {/* Actions */}
-          <div className="flex space-x-2">
-            <Button 
-              size="sm" 
-              className="flex-1"
-              onClick={() => setSelectedCircle(circle)}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              View Details
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation()
-                shareCircle(circle)
-              }}
-            >
-              <Share2 className="h-3 w-3" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  const filterPanel = (
+    <div className="space-y-6">
+      <FacetGroup
+        title={t('filter.genre')}
+        entries={facets.genre}
+        picked={selected.genre}
+        onToggle={(value) => toggle('genre', value)}
+      />
+      <FacetGroup
+        title={t('filter.fandom')}
+        entries={facets.fandom}
+        picked={selected.fandom}
+        onToggle={(value) => toggle('fandom', value)}
+      />
+      <FacetGroup
+        title={t('filter.rating')}
+        entries={facets.rating}
+        picked={selected.rating}
+        onToggle={(value) => toggle('rating', value)}
+        label={ratingLabel}
+      />
+      <FacetGroup
+        title={t('filter.block')}
+        entries={facets.block}
+        picked={selected.block}
+        onToggle={(value) => toggle('block', value)}
+      />
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('filter.onlineShop')}
+        </h3>
+        <label className="mt-2 flex items-center gap-2 py-1 text-sm coarse:min-h-11">
+          <Checkbox
+            aria-label={t('filter.onlineShop')}
+            checked={selected.shopOnly}
+            onCheckedChange={(value) =>
+              setSelected((prev) => ({ ...prev, shopOnly: value === true }))
+            }
+          />
+          <span className="flex-1 text-foreground">{t('filter.onlineShop')}</span>
+          <span className="tabular-nums text-muted-foreground">{facets.shop}</span>
+        </label>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Circle Catalog</h1>
-        <p className="text-gray-600">Discover amazing circles and artists at the convention</p>
-      </div>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:py-10">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {t('title')}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground text-pretty">{t('subtitle')}</p>
+      </header>
 
-      {/* Search and Filters */}
-      <div className="space-y-4">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
-            placeholder="Search circles, artists, genres, or fandoms..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('searchPlaceholder')}
+            aria-label={t('searchPlaceholder')}
+            className="pl-9 coarse:min-h-11"
           />
         </div>
-
-        {/* Filter Controls */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex flex-wrap gap-2 flex-1">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category === 'all' ? 'All Categories' : category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Genre" />
-              </SelectTrigger>
-              <SelectContent>
-                {genres.map((genre) => (
-                  <SelectItem key={genre} value={genre}>
-                    {genre === 'all' ? 'All Genres' : genre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedFandom} onValueChange={setSelectedFandom}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Fandom" />
-              </SelectTrigger>
-              <SelectContent>
-                {fandoms.map((fandom) => (
-                  <SelectItem key={fandom} value={fandom}>
-                    {fandom === 'all' ? 'All Fandoms' : fandom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-1"
-            >
-              <Filter className="h-4 w-4" />
-              <span>More Filters</span>
-            </Button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            {/* Sort Controls */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            >
-              {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-            </Button>
-
-            {/* View Mode Toggle */}
-            <div className="flex border rounded">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="rounded-r-none"
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-l-none"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Advanced Filters */}
-        {showFilters && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Advanced Filters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Features</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Featured Circles</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">New Circles</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">International</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Collaboration Friendly</span>
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Accessibility</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Wheelchair Accessible</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Multiple Languages</span>
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Payment Methods</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Cash</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Card</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Digital Payment</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Results Summary */}
-      <div className="flex items-center justify-between">
-        <p className="text-gray-600">
-          Showing {filteredCircles.length} of {circles.length} circles
-        </p>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm">
-            <Heart className="h-4 w-4 mr-1" />
-            My Favorites ({favoriteCircles.size})
-          </Button>
-          <Button variant="outline" size="sm">
-            <Bookmark className="h-4 w-4 mr-1" />
-            Bookmarks ({bookmarkedCircles.size})
-          </Button>
-        </div>
-      </div>
-
-      {/* Circle Grid/List */}
-      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-        {filteredCircles.map((circle) => (
-          <CircleCard 
-            key={circle.id} 
-            circle={circle} 
-            compact={viewMode === 'list'}
-          />
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {filteredCircles.length === 0 && (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No circles found</h3>
-          <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
-          <Button 
-            onClick={() => {
-              setSearchQuery('')
-              setSelectedCategory('all')
-              setSelectedGenre('all')
-              setSelectedFandom('all')
-            }}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="lg:hidden"
+            onClick={() => setFiltersOpen(true)}
+            aria-haspopup="dialog"
           >
-            Clear All Filters
+            <Filter aria-hidden="true" />
+            {t('filter.title')}
+            {activeChips.length > 0 && (
+              <Badge variant="secondary" className="ml-1 tabular-nums">
+                {activeChips.length}
+              </Badge>
+            )}
+          </Button>
+          <Select value={sort} onValueChange={(value) => setSort(value as typeof sort)}>
+            <SelectTrigger className="w-40 coarse:min-h-11" aria-label={t('sort.label')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="reading">{t('sort.reading')}</SelectItem>
+              <SelectItem value="name">{t('sort.name')}</SelectItem>
+              <SelectItem value="booth">{t('sort.booth')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
+          {activeChips.map((chip) => (
+            <button
+              key={`${chip.key}-${chip.value}`}
+              type="button"
+              onClick={() =>
+                chip.key === 'shopOnly'
+                  ? setSelected((prev) => ({ ...prev, shopOnly: false }))
+                  : toggle(chip.key, chip.value)
+              }
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11"
+            >
+              {chip.label}
+              <X className="size-3" aria-hidden="true" />
+              <span className="sr-only">{t('common:action.clearFilters')}</span>
+            </button>
+          ))}
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setSelected(EMPTY)}>
+            {t('filter.clear')}
           </Button>
         </div>
       )}
 
-      {/* Circle Detail Modal */}
-      {selectedCircle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-xl">{selectedCircle.circle_name}</CardTitle>
-                  <CardDescription>by {selectedCircle.representative_name}</CardDescription>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setSelectedCircle(null)}
-                >
-                  ✕
+      <div className="mt-6 flex gap-8">
+        <aside className="hidden w-56 shrink-0 lg:block">
+          <h2 className="text-sm font-semibold text-foreground">{t('filter.title')}</h2>
+          <div className="mt-4">{filterPanel}</div>
+        </aside>
+
+        <main className="min-w-0 flex-1">
+          {isLoading && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+              {[0, 1, 2, 3, 4, 5].map((n) => (
+                <div key={n} className="h-40 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && error && (
+            <EmptyState
+              icon={Users}
+              title={t('common:error.network')}
+              description={error.message}
+              action={
+                <Button variant="outline" onClick={refetch}>
+                  {t('common:action.retry')}
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Booth Info */}
-              <div className="flex items-center space-x-4">
-                <Badge className="bg-blue-600">
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {selectedCircle.booth_number}
-                </Badge>
-                <Badge variant="outline">
-                  {getBoothTypeDisplay(selectedCircle.booth_type, selectedCircle.booth_size)}
-                </Badge>
-              </div>
+              }
+            />
+          )}
 
-              {/* Description */}
-              <p className="text-gray-700">{selectedCircle.description}</p>
+          {!isLoading && !error && isEmpty && (
+            <EmptyState
+              icon={Users}
+              title={t('common:empty.noData.title')}
+              description={t('common:empty.noData.description')}
+            />
+          )}
 
-              {/* Categories and Tags */}
-              <div>
-                <h4 className="font-medium mb-2">Categories & Genres</h4>
-                <div className="flex flex-wrap gap-1">
-                  <Badge>{selectedCircle.category}</Badge>
-                  {selectedCircle.genre.map((genre) => (
-                    <Badge key={genre} variant="secondary">{genre}</Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fandoms */}
-              {selectedCircle.fandom.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Fandoms</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedCircle.fandom.map((fandom) => (
-                      <Badge key={fandom} variant="outline">{fandom}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Social Media */}
-              {Object.keys(selectedCircle.social_media).length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Connect</h4>
-                  <div className="flex space-x-2">
-                    {selectedCircle.social_media.website && (
-                      <Button size="sm" variant="outline">
-                        <Globe className="h-4 w-4 mr-1" />
-                        Website
-                      </Button>
-                    )}
-                    {selectedCircle.social_media.twitter && (
-                      <Button size="sm" variant="outline">
-                        <Twitter className="h-4 w-4 mr-1" />
-                        Twitter
-                      </Button>
-                    )}
-                    {selectedCircle.social_media.instagram && (
-                      <Button size="sm" variant="outline">
-                        <Instagram className="h-4 w-4 mr-1" />
-                        Instagram
-                      </Button>
-                    )}
-                    {selectedCircle.social_media.email && (
-                      <Button size="sm" variant="outline">
-                        <Mail className="h-4 w-4 mr-1" />
-                        Email
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Special Events */}
-              {selectedCircle.special_events && selectedCircle.special_events.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Special Events</h4>
-                  <ul className="space-y-1">
-                    {selectedCircle.special_events.map((event, index) => (
-                      <li key={index} className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm">{event}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex space-x-2 pt-4">
-                <Button className="flex-1">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  Find on Map
-                </Button>
-                <Button 
+          {!isLoading && !error && !isEmpty && rows.length === 0 && (
+            <EmptyState
+              icon={Search}
+              title={t('common:empty.noResults.title')}
+              description={t('common:empty.noResults.description')}
+              action={
+                <Button
                   variant="outline"
-                  onClick={() => toggleFavorite(selectedCircle.id)}
-                  className={favoriteCircles.has(selectedCircle.id) ? 'text-red-600' : ''}
+                  onClick={() => {
+                    setSelected(EMPTY)
+                    setQuery('')
+                  }}
                 >
-                  <Heart className={`h-4 w-4 ${favoriteCircles.has(selectedCircle.id) ? 'fill-current' : ''}`} />
+                  {t('common:action.clearFilters')}
                 </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => shareCircle(selectedCircle)}
-                >
-                  <Share2 className="h-4 w-4" />
+              }
+            />
+          )}
+
+          {rows.length > 0 && (
+            <>
+              <p className="mb-3 text-sm tabular-nums text-muted-foreground">
+                {t('common:count.result', { count: rows.length })}
+              </p>
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <CircleCard
+                      row={row}
+                      revealed={revealed.has(row.id)}
+                      onReveal={() => setRevealed((prev) => new Set(prev).add(row.id))}
+                      onOpen={() => setDetail(row)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </main>
+      </div>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('filter.title')}</DialogTitle>
+            <DialogDescription>{t('subtitle')}</DialogDescription>
+          </DialogHeader>
+          {filterPanel}
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setSelected(EMPTY)}>
+              {t('filter.clear')}
+            </Button>
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+              {t('filter.apply')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detail !== null} onOpenChange={(open) => !open && setDetail(null)}>
+        <DialogContent className="max-h-[85vh] space-y-4 overflow-y-auto">
+          {detail && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-pretty">{detail.circle_name}</DialogTitle>
+                <DialogDescription>
+                  {t('card.penName')} {detail.pen_name}
+                  {detail.circle_name_furigana ? ` · ${detail.circle_name_furigana}` : ''}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-md border border-border px-2 py-1 font-mono text-sm tabular-nums text-foreground">
+                  {detail.booth_number ?? t('card.noBooth')}
+                </span>
+                {detail.rating && (
+                  <Badge variant={detail.rating === 'r18' ? 'warning' : 'secondary'}>
+                    {ratingLabel(detail.rating)}
+                  </Badge>
+                )}
+                {detail.genre && <Badge variant="outline">{detail.genre}</Badge>}
+                {detail.fandom && <Badge variant="outline">{detail.fandom}</Badge>}
+              </div>
+
+              {detail.description && (
+                <section>
+                  <h3 className="text-sm font-semibold text-foreground">{t('detail.about')}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                    {detail.description}
+                  </p>
+                </section>
+              )}
+              {detail.works_description && (
+                <section>
+                  <h3 className="text-sm font-semibold text-foreground">{t('detail.works')}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                    {detail.works_description}
+                  </p>
+                </section>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                {detail.booth_number && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/e/${eventId}/map?booth=${detail.booth_number}`}>
+                      <MapIcon aria-hidden="true" />
+                      {t('detail.showOnMap')}
+                    </Link>
+                  </Button>
+                )}
+                {detail.marketplace_link && (
+                  <Button asChild variant="outline" size="sm">
+                    <a href={detail.marketplace_link} target="_blank" rel="noreferrer noopener">
+                      <ShoppingBag aria-hidden="true" />
+                      {t('filter.onlineShop')}
+                    </a>
+                  </Button>
+                )}
+                {detail.social_media_twitter && (
+                  <Button asChild variant="outline" size="sm">
+                    <a
+                      href={`https://x.com/${detail.social_media_twitter}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <ExternalLink aria-hidden="true" />@{detail.social_media_twitter}
+                    </a>
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => void share(detail)}>
+                  <Link2 aria-hidden="true" />
+                  {t('card.share')}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-export default CircleCatalog
+function FacetGroup({
+  title,
+  entries,
+  picked,
+  onToggle,
+  label,
+}: {
+  title: string
+  entries: [string, number][]
+  picked: string[]
+  onToggle: (value: string) => void
+  label?: (value: string) => string
+}) {
+  if (entries.length === 0) return null
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h3>
+      <ul className="mt-2 space-y-1">
+        {entries.map(([value, count]) => (
+          <li key={value}>
+            {/* aria-label, not the wrapping <label>: Radix renders a
+                `button role="checkbox"`, and a button is not a labelable
+                element — implicit label association gives it no name at all. */}
+            <label className="flex items-center gap-2 py-1 text-sm coarse:min-h-11">
+              <Checkbox
+                aria-label={`${label ? label(value) : value} (${count})`}
+                checked={picked.includes(value)}
+                onCheckedChange={() => onToggle(value)}
+              />
+              <span className="flex-1 truncate text-foreground">{label ? label(value) : value}</span>
+              <span className="tabular-nums text-muted-foreground">{count}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * R18 gating sits on the CARD, not on the detail page: a grid of covers is
+ * exactly where an adult-only circle cut would otherwise be visible to everyone
+ * standing behind you.
+ */
+function CircleCard({
+  row,
+  revealed,
+  onReveal,
+  onOpen,
+}: {
+  row: CircleCatalogRow
+  revealed: boolean
+  onReveal: () => void
+  onOpen: () => void
+}) {
+  const { t } = useTranslation(['catalog', 'common'])
+
+  if (row.rating === 'r18' && !revealed) {
+    return (
+      <div className="flex h-full flex-col justify-between gap-3 rounded-lg border border-warning/40 bg-warning-subtle p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-sm tabular-nums text-foreground">
+            {row.booth_number ?? t('card.noBooth')}
+          </span>
+          <Badge variant="warning">R18</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{t('card.r18Hidden')}</p>
+        <Button variant="outline" size="sm" onClick={onReveal} className="self-start">
+          {t('card.r18Reveal')}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <div className="flex items-start gap-3">
+        {row.circle_cut_file_url ? (
+          <img
+            src={row.circle_cut_file_url}
+            alt=""
+            loading="lazy"
+            className="size-12 shrink-0 rounded-md border border-border object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-lg font-semibold text-primary"
+          >
+            {row.circle_name.slice(0, 1)}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium text-card-foreground">{row.circle_name}</span>
+          <span className="block truncate text-sm text-muted-foreground">
+            {t('card.penName')} {row.pen_name}
+          </span>
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        {/* The field attendees actually navigate by. Mono + tabular so a column of
+            booth codes lines up on a phone. */}
+        <span className="font-mono text-sm tabular-nums text-foreground">
+          {row.booth_number ?? t('card.noBooth')}
+        </span>
+        {hasShop(row) && (
+          <ShoppingBag
+            className="size-4 text-muted-foreground"
+            aria-label={t('filter.onlineShop')}
+          />
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {row.genre && (
+          <Badge variant="outline" className="max-w-full truncate">
+            {row.genre}
+          </Badge>
+        )}
+        {row.fandom && (
+          <Badge variant="outline" className="max-w-full truncate">
+            {row.fandom}
+          </Badge>
+        )}
+        {row.rating === 'r15' && <Badge variant="secondary">R15</Badge>}
+      </div>
+    </button>
+  )
+}

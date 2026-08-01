@@ -390,7 +390,12 @@ export default function TicketScanner({
         >
           <X className="size-5" aria-hidden="true" />
         </Button>
-        <p className="min-w-0 flex-1 truncate text-sm font-semibold">{eventName ?? t('title')}</p>
+        {/* The visible label is the event name, but the page still needs a
+            heading a screen reader can land on — h1 sized down, not a <p>. */}
+        <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">
+          <span className="sr-only">{t('title')} — </span>
+          {eventName ?? t('title')}
+        </h1>
         <Badge variant={online ? 'success' : 'warning'} aria-live="polite">
           {chip}
         </Badge>

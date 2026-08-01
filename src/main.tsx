@@ -12,11 +12,12 @@ import { queryClient } from "./lib/queryClient";
 // ---------------------------------------------------------------------------
 // One-time cleanup of the pre-rebuild Zustand `persist` keys.
 //
-// Those stores wrote their mock literals to localStorage on first render, with
-// no `version` and no `migrate`. Deleting the mock arrays from source is not
-// enough: rehydration puts Sakura Studios and Rp 2.500.000.000 back into the
-// owner's own browser forever, and criterion 1 gets marked done while the screen
-// still lies. Removing the keys is the only fix that reaches an existing tab.
+// Those stores wrote their invented circle names and revenue figures to
+// localStorage on first render, with no `version` and no `migrate`. Deleting
+// the arrays from source is not enough: rehydration puts every one of them back
+// into the owner's own browser forever, and criterion 1 gets marked done while
+// the screen still lies. Removing the keys is the only fix that reaches an
+// already-open tab.
 //
 // Safe to run every boot — after the stores are gone these are no-ops. Delete
 // this block once the owner has loaded the app at least once post-Wave-5.

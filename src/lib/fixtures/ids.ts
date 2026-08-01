@@ -23,6 +23,12 @@ export const USER = {
   attendee: uid('a', 4),
   /** A second circle owner, so the review queue is not a queue of one person. */
   circle2: uid('a', 5),
+  /**
+   * A third, with no account in the role picker. 005 declares
+   * `UNIQUE (event_id, user_id)` on `circles`, so one owner cannot hold two
+   * applications for one event — the unsubmitted draft needs its own owner.
+   */
+  circle3: uid('a', 6),
 } as const
 
 /** Reference dates hang off "today" so the demo is never stale. */

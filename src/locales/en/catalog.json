@@ -11,6 +11,7 @@
     "hall": "Hall",
     "block": "Block",
     "onlineShop": "Has online shop",
+    "r18": "Include R18 circles",
     "apply": "Show results",
     "clear": "Clear all"
   },
@@ -26,7 +27,9 @@
     "noBooth": "Booth pending",
     "penName": "PN",
     "r18Hidden": "R18 — tap to reveal",
-    "r18Reveal": "Show R18 content"
+    "r18Reveal": "Show R18 content",
+    "share": "Copy link",
+    "shared": "Link copied"
   },
   "detail": {
     "about": "About",
@@ -68,5 +71,65 @@
     "showQr": "Show QR",
     "used": "Used",
     "usedAt": "Used {{time}}"
+  },
+  "guide": {
+    "intro": "Plan your visit: who is exhibiting, where they are, and what is on.",
+    "catalogBody": "Browse every circle, filter by genre and fandom, find booth codes.",
+    "mapBody": "Locate a booth on the floor plan.",
+    "scheduleBody": "Stage programme and opening times.",
+    "ticketsBody": "Buy entry for one day or both.",
+    "walletBody": "Your QR tickets, ready at the gate.",
+    "applyBody": "Apply for a booth, or check your application.",
+    "venue": "Venue",
+    "dates": "Dates"
+  },
+  "wallet": {
+    "subtitle": "Show the QR at the gate. It works without a connection.",
+    "empty": "No tickets yet",
+    "emptyBody": "Tickets you buy appear here with a QR code for the gate.",
+    "buy": "Buy tickets",
+    "order": "Order",
+    "holder": "Holder",
+    "validUntil": "Valid until {{date}}",
+    "revoked": "Revoked",
+    "revokedBody": "This pass was refunded or cancelled and will not admit.",
+    "pending": "Awaiting payment",
+    "pendingBody": "The QR appears once payment is confirmed.",
+    "cached": "Showing saved tickets — you are offline.",
+    "passOf": "Pass {{index}} of {{total}}",
+    "eventLabel": "Event"
+  },
+  "tier": {
+    "title": "Ticket tiers",
+    "subtitle": "Prices, inventory and sales for this event.",
+    "new": "New tier",
+    "edit": "Edit tier",
+    "name": "Tier name",
+    "quantity": "Quantity available",
+    "sold": "{{sold}} of {{total}} sold",
+    "saleEnd": "Sales close",
+    "status": "Status",
+    "empty": "No ticket tiers yet",
+    "emptyBody": "Create a tier before opening sales.",
+    "revenue": "Ticket revenue",
+    "pendingRevenue": "Pending",
+    "saveError": "Could not save the tier.",
+    "description": "Description"
+  },
+  "checkout": {
+    "title": "Buy tickets",
+    "signIn": "Sign in to buy",
+    "signInBody": "Tickets are tied to your account so a QR can be reissued.",
+    "empty": "Sales are not open",
+    "emptyBody": "No ticket tiers are on sale for this event yet.",
+    "summary": "Order summary",
+    "selectOne": "Choose at least one ticket.",
+    "maxPerOrder": "Up to 20 tickets per order.",
+    "placed": "Order {{reference}} created",
+    "placedBody": "Payment is confirmed by the gateway; your QR appears under My tickets.",
+    "viewWallet": "Go to my tickets",
+    "failed": "Could not complete the purchase.",
+    "increase": "Add one {{tier}}",
+    "decrease": "Remove one {{tier}}"
   }
 }

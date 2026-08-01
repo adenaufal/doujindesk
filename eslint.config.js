@@ -49,21 +49,6 @@ const tokenGate = [
 // instead of shrinking: move to per-file disables so the debt is visible where
 // the code is.
 const TOKEN_GATE_BASELINE = [
-  'src/components/Dashboard.tsx', //           79
-  'src/components/QueueStatus.tsx', //         49
-  'src/components/AnnouncementSystem.tsx', //  49
-  'src/components/NotificationCenter.tsx', //  35
-  'src/components/InteractiveMap.tsx', //      34
-  'src/components/EventSchedule.tsx', //       31
-  'src/components/EventGuide.tsx', //          28
-  'src/components/AttendeeRegistration.tsx', // 27
-  'src/components/BoothAllocation.tsx', //     25
-  'src/components/CircleCatalog.tsx', //       20
-  'src/components/StaffCoordination.tsx', //   15
-  'src/components/FinancialManagement.tsx', // 14
-  'src/components/CircleManagement.tsx', //    14
-  'src/components/TicketingSystem.tsx', //      1
-  'src/components/PaymentProcessor.tsx', //     1
 ]
 
 export default tseslint.config(
@@ -91,8 +76,9 @@ export default tseslint.config(
     files: ['src/**/*.tsx'],
     rules: { 'no-restricted-syntax': tokenGate },
   },
-  {
-    files: TOKEN_GATE_BASELINE,
-    rules: { 'no-restricted-syntax': 'off' },
-  },
+  // The spread keeps the config valid when the baseline finally empties: a flat
+  // config block with `files: []` matches nothing and ESLint rejects it.
+  ...(TOKEN_GATE_BASELINE.length
+    ? [{ files: TOKEN_GATE_BASELINE, rules: { 'no-restricted-syntax': 'off' } }]
+    : []),
 )

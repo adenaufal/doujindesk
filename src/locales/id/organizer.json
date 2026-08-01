@@ -1,18 +1,38 @@
 {
   "dashboard": {
     "title": "Dasbor",
+    "forEvent": "Angka terkini untuk {{event}}.",
     "applications": "Pendaftaran",
+    "applicationsHint_other": "{{count}} menunggu ditinjau",
     "boothsAllocated": "Booth teralokasi",
+    "boothsHint_other": "{{count}} masih kosong",
     "ticketsSold": "Tiket terjual",
+    "ticketsHint_other": "{{count}} masih dijual",
     "checkedIn": "Sudah check-in",
-    "revenue": "Pendapatan"
+    "checkedInHint": "Yang sudah masuk lewat pintu",
+    "revenue": "Pendapatan bersih",
+    "revenueHint": "Dari buku transaksi, setelah refund dan biaya",
+    "quickActions": "Aksi cepat",
+    "action": {
+      "review": "Tinjau pendaftaran",
+      "reviewBody": "Terima, masukkan waitlist, atau tolak circle yang menunggu keputusan.",
+      "allocate": "Alokasikan booth",
+      "allocateBody": "Tempatkan circle yang diterima pada denah.",
+      "announce": "Tulis pengumuman",
+      "announceBody": "Beri tahu circle, staf, atau publik tentang perubahan.",
+      "scan": "Buka pemindai",
+      "scanBody": "Terima pemegang tiket di gerbang, online maupun offline."
+    },
+    "recent": "Notifikasi terbaru",
+    "recentEmpty": "Belum ada notifikasi",
+    "recentEmptyBody": "Pendaftaran, pembayaran, dan penugasan muncul di sini."
   },
   "review": {
     "title": "Pendaftaran circle",
     "tab": {
       "pending": "Menunggu",
       "approved": "Diterima",
-      "waitlist": "Daftar tunggu",
+      "waitlist": "Waitlist",
       "rejected": "Ditolak"
     },
     "column": {
@@ -23,10 +43,10 @@
       "submitted": "Dikirim"
     },
     "approve": "Terima",
-    "waitlist": "Daftar tunggu",
+    "waitlist": "Waitlist",
     "reject": "Tolak",
     "rejectReason": "Alasan penolakan",
-    "rejectReasonRequired": "Isi alasannya — circle akan membacanya.",
+    "rejectReasonRequired": "Tulis alasannya — circle akan membacanya.",
     "bulkConfirm_other": "Terima {{count}} pendaftaran?",
     "bulkConfirmBody": "Circle yang diterima menjadi kandidat alokasi booth.",
     "inspector": "Detail pendaftaran"
@@ -49,7 +69,13 @@
     "ticketRevenue": "Pendapatan tiket",
     "refunds": "Pengembalian dana",
     "net": "Bersih",
+    "netHint": "Semua kelompok, mata uang ini",
     "period": "Periode",
+    "periodOption": {
+      "7d": "7 hari",
+      "30d": "30 hari",
+      "all": "Semua"
+    },
     "column": {
       "date": "Tanggal",
       "type": "Jenis",
@@ -61,36 +87,191 @@
     "type": {
       "circleFee": "Biaya circle",
       "ticketSale": "Penjualan tiket",
-      "refund": "Refund"
+      "refund": "Refund",
+      "expense": "Pengeluaran",
+      "commission": "Komisi"
+    },
+    "status": {
+      "pending": "Menunggu",
+      "failed": "Gagal",
+      "refunded": "Direfund"
     },
     "total": "Total",
-    "ledgerNote": "Semua angka di sini dijumlahkan dari baris transaksi."
+    "ledgerNote": "Semua angka di sini dijumlahkan dari baris transaksi.",
+    "ledger": "Buku transaksi",
+    "appendOnly": "Hanya bisa ditambah: koreksi berupa baris pembalik, bukan pengeditan.",
+    "reverses": "Membalik transaksi sebelumnya",
+    "netAllTime": "Bersih, sepanjang waktu",
+    "rowsShown_other": "({{count}} baris ditampilkan)",
+    "transactions_other": "{{count}} transaksi",
+    "pending": "{{amount}} menunggu",
+    "trend": "Pendapatan dari waktu ke waktu",
+    "trendNote": "Dua grafik, dua skala — biaya circle dan penjualan tiket beda ordo besarnya.",
+    "trendEmpty": "Transaksi belum cukup untuk menggambar tren.",
+    "emptyTitle": "Tidak ada transaksi pada periode ini",
+    "emptyBody": "Pembayaran circle dan penjualan tiket muncul begitu dana masuk."
   },
   "staff": {
     "title": "Staf",
-    "invite": "Undang staf",
+    "subtitle": "Siapa yang bertugas, dan apa yang harus dikerjakan.",
+    "roster": "Daftar staf",
+    "rosterEmpty": "Belum ada staf di event ini",
+    "rosterEmptyBody": "Tambahkan orang yang sudah punya akun DoujinDesk ke daftar.",
+    "invite": "Tambah staf",
+    "inviteHint": "Mereka harus sudah punya akun DoujinDesk. Undangan lewat email belum dikirim dari sini.",
+    "inviteEmail": "Email akun",
+    "inviteNoAccount": "Tidak ada akun dengan email itu. Minta mereka mendaftar dulu.",
+    "inviteAdded": "{{email}} ditambahkan ke daftar staf.",
     "role": "Peran",
+    "roleOption": {
+      "organizer": "Panitia inti",
+      "coordinator": "Koordinator",
+      "scanner": "Petugas scan",
+      "volunteer": "Relawan"
+    },
+    "statusOption": {
+      "active": "Bertugas",
+      "on_break": "Istirahat",
+      "inactive": "Tidak bertugas"
+    },
+    "changeStatus": "Ubah status",
+    "onDuty": "{{count}} bertugas dari {{total}}",
     "tasks": "Tugas",
+    "tasksEmpty": "Belum ada tugas",
+    "tasksEmptyBody": "Tambahkan pekerjaan yang harus selesai sebelum pintu dibuka.",
+    "openTasks_other": "{{count}} tugas belum selesai",
     "addTask": "Tambah tugas",
+    "addTaskHint": "Tentukan penanggung jawab sekarang, atau biarkan kosong dulu.",
+    "taskTitle": "Apa yang harus dikerjakan",
+    "taskAdded": "Tugas ditambahkan.",
     "assignee": "Penanggung jawab",
+    "unassigned": "Belum ada penanggung jawab",
+    "location": "Lokasi",
     "due": "Tenggat",
     "done": "Selesai",
-    "open": "Belum selesai"
+    "open": "Belum selesai",
+    "complete": "Tandai selesai",
+    "priorityLabel": "Prioritas",
+    "priority": {
+      "low": "Rendah",
+      "medium": "Sedang",
+      "high": "Tinggi",
+      "critical": "Kritis"
+    },
+    "taskStatus": {
+      "pending": "Belum mulai",
+      "in_progress": "Sedang dikerjakan",
+      "completed": "Selesai",
+      "cancelled": "Dibatalkan"
+    }
+  },
+  "tasks": {
+    "title": "Tugas saya",
+    "subtitle_other": "{{count}} hal untuk dikerjakan.",
+    "empty": "Tidak ada tugas untukmu",
+    "emptyBody": "Begitu koordinator memberimu pekerjaan, tugasnya muncul di sini.",
+    "start": "Mulai",
+    "complete": "Selesai",
+    "reopen": "Buka lagi",
+    "done_other": "{{count}} selesai",
+    "overdue": "Lewat tenggat — {{when}}"
   },
   "announcement": {
     "title": "Pengumuman",
+    "subtitle": "Satu pesan, tiga bahasa, dikirim ke penerima yang kamu pilih.",
     "compose": "Pengumuman baru",
+    "composeHint": "Bahasa Inggris adalah cadangan yang diterima semua pembaca, jadi wajib diisi.",
     "subject": "Judul",
     "body": "Isi pesan",
     "audience": "Penerima",
+    "audienceOption": {
+      "public": "Publik",
+      "attendee": "Pengunjung",
+      "circle": "Circle",
+      "staff": "Staf"
+    },
+    "severityLabel": "Tingkat",
+    "severity": {
+      "info": "Info",
+      "warning": "Perhatian",
+      "critical": "Darurat"
+    },
+    "status": {
+      "draft": "Draf",
+      "scheduled": "Terjadwal",
+      "published": "Terbit",
+      "archived": "Diarsipkan"
+    },
     "publish": "Terbitkan",
     "published": "Terbit {{date}}",
-    "draft": "Draf"
+    "publishedOk": "Pengumuman diterbitkan.",
+    "notScheduled": "Belum dijadwalkan",
+    "pin": "Sematkan di atas",
+    "pinned": "Disematkan",
+    "draft": "Draf",
+    "required": "Judul dan isi dalam bahasa Inggris wajib, begitu juga minimal satu penerima.",
+    "empty": "Belum ada pengumuman",
+    "emptyBody": "Jam buka, perubahan denah, cuaca — apa pun yang perlu diketahui semua orang sekaligus."
   },
   "queue": {
     "title": "Antrean",
+    "subtitle": "Panjang antrean langsung dan penghitung pintu masuk.",
     "waiting": "Menunggu",
+    "waitingHint": "Dari semua jalur yang terbuka",
     "insideVenue": "Di dalam venue",
-    "throughput": "Per jam"
+    "insideVenueHint": "Yang sudah masuk lewat pintu",
+    "throughput": "Per jam",
+    "alerts": "Peringatan",
+    "alertsHint": "Jalur yang perlu perhatian",
+    "noAlerts": "Semua masih dalam batas",
+    "lanes": "Jalur",
+    "empty": "Belum ada antrean",
+    "emptyBody": "Buat satu jalur per gerbang atau circle populer untuk memantau waktu tunggu.",
+    "updated": "Penghitung diperbarui {{when}}",
+    "waitMinutes_other": "tunggu {{count}} mnt",
+    "capacityLabel": "Kapasitas terpakai {{name}}",
+    "increase": "Tambah 10 orang di {{name}}",
+    "decrease": "Kurangi 10 orang di {{name}}",
+    "changeStatus": "Ubah status jalur",
+    "status": {
+      "open": "Buka",
+      "paused": "Ditahan",
+      "closed": "Tutup"
+    },
+    "type": {
+      "entry": "Masuk",
+      "circle": "Circle",
+      "merchandise": "Merchandise",
+      "food": "Makanan",
+      "service": "Layanan"
+    },
+    "alert": {
+      "nearCapacity": "{{percent}}% dari kapasitas — pertimbangkan membuka jalur lain.",
+      "longWait_other": "Waktu tunggu {{count}} menit.",
+      "pausedWithPeople_other": "Ditahan padahal {{count}} orang masih menunggu."
+    }
+  },
+  "notify": {
+    "title": "Notifikasi",
+    "subtitle": "Semua yang ditujukan untukmu, terbaru di atas.",
+    "all": "Semua",
+    "unread": "Belum dibaca",
+    "unreadCount_other": "Belum dibaca ({{count}})",
+    "markRead": "Tandai sudah dibaca",
+    "markAllRead": "Tandai semua sudah dibaca",
+    "archive": "Arsipkan",
+    "empty": "Kotak masukmu kosong",
+    "emptyBody": "Pendaftaran, pembayaran, tugas, dan pengumuman mendarat di sini.",
+    "emptyUnread": "Tidak ada yang belum dibaca",
+    "emptyUnreadBody": "Semua sudah kamu baca.",
+    "category": {
+      "announcement": "Pengumuman",
+      "application": "Pendaftaran",
+      "payment": "Pembayaran",
+      "booth": "Booth",
+      "ticket": "Tiket",
+      "task": "Tugas",
+      "system": "Sistem"
+    }
   }
 }

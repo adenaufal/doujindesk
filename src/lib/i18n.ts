@@ -37,6 +37,8 @@ export const NAMESPACES = [
   'scanner',
   'catalog',
   'organizer',
+  'shell',
+  'floorplan',
 ] as const
 
 export const STORAGE_KEY = 'doujindesk.locale'

@@ -1,918 +1,615 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useMemo, useState } from 'react'
+import { Minus, Plus, Ticket } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import { EmptyState } from './ui/empty-state'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Badge } from './ui/badge'
-import { Checkbox } from './ui/checkbox'
-import { Textarea } from './ui/textarea'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { Progress } from './ui/progress'
-import { Separator } from './ui/separator'
-import { ScrollArea } from './ui/scroll-area'
-import { useTicketStore, TicketType, TicketPurchase } from '../stores/ticketStore'
-import { useToast } from '../hooks/use-toast'
-import PaymentProcessor from './PaymentProcessor'
-import TicketScanner from './TicketScanner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Textarea } from './ui/textarea'
+import { formatMoney, type Currency } from '@/lib/money'
 import {
-  CreditCard,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Settings,
-  Ticket,
-  DollarSign,
-  UserCheck
-} from 'lucide-react'
+  useEvent,
+  useFinancialSummary,
+  usePurchaseTickets,
+  useSaveTicket,
+  useTickets,
+} from '@/lib/queries'
+import type { TicketRow } from '@/lib/database.types'
+import { useAuthStore } from '@/stores/authStore'
 
-const TicketingSystem: React.FC = () => {
-  const {
-    ticketTypes,
-    purchases,
-    salesStats,
-    currency,
-    setCurrency,
-    // exchangeRate,
-    getActiveTicketTypes,
-    addPurchase,
-    calculateTicketPrice,
-    // validateTicket,
-    generateQRCode,
-    updateSalesStats,
-    addTicketType,
-    // updateTicketType,
-    // deleteTicketType - removed unused
-  } = useTicketStore()
-  
-  const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState('sales')
-  const [selectedTicketType, setSelectedTicketType] = useState<string>('')
-  const [quantity, setQuantity] = useState(1)
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
-  const [scannerMode, setScannerMode] = useState<'entry' | 'exit'>('entry')
-  const [attendeeInfo, setAttendeeInfo] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    age: '',
-    idNumber: '',
-    isPwd: false,
-    isChild: false
-  })
+/**
+ * `/e/:eventId/tickets` — ONE ticket catalog, two audiences.
+ *
+ * The route is in both nav tables (organizer sidebar and the public topbar), so
+ * the screen branches on role rather than duplicating the tier list: an organizer
+ * administers the tiers, everyone else buys from them. Before this, an attendee
+ * checkout kept its own hardcoded `{general, premium, vip}` array that
+ * contradicted the four tiers the organizer edits — the list you buy from was not
+ * the list being sold.
+ *
+ * There is no scanner tab here any more. The scanner is `/e/:eventId/scan` in the
+ * Focus layout, with a real gate id and the signed-in staffer, not the literals
+ * `GATE_SCAN_01` / `STAFF_001`.
+ */
+export default function TicketingSystem() {
+  const { eventId } = useParams()
+  const role = useAuthStore((s) => s.role)
+  return role === 'organizer' ? <TierAdmin eventId={eventId} /> : <Checkout eventId={eventId} />
+}
 
-  // const [scannedCode] = useState('')
-  // const [, setValidationResult] = useState<{
-  //   isValid: boolean
-  //   message: string
-  //   ticket?: any
-  // } | null>(null)
-  
-  // New ticket type form
-  const [newTicketForm, setNewTicketForm] = useState({
-    name: '',
-    description: '',
-    price_idr: 0,
-    price_usd: 0,
-    category: 'single_day' as 'weekend' | 'single_day' | 'vip' | 'special',
-    day: 'saturday' as 'saturday' | 'sunday' | 'both',
-    max_quantity: 1000,
-    benefits: [''],
-    requires_id: false
-  })
-  
-  useEffect(() => {
-    updateSalesStats()
-  }, [purchases, updateSalesStats])
-  
-  const handlePurchaseTicket = async () => {
-    if (!selectedTicketType || !attendeeInfo.name || !attendeeInfo.email) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      })
-      return
-    }
-    setShowPaymentDialog(true)
+/** `purchase_tickets` reads the price out of `tickets`; this only has to agree. */
+function effectivePrice(tier: TicketRow): number {
+  const early =
+    tier.early_bird_price != null &&
+    tier.early_bird_end != null &&
+    new Date().toISOString() < tier.early_bird_end
+  return Number(early ? tier.early_bird_price : tier.price)
+}
+
+const remainingOf = (tier: TicketRow) => Math.max(0, tier.quantity_available - tier.quantity_sold)
+const onSale = (tier: TicketRow) => tier.status === 'active' && remainingOf(tier) > 0
+
+// ---------------------------------------------------------------------------
+// Attendee checkout
+// ---------------------------------------------------------------------------
+
+function Checkout({ eventId }: { eventId: string | undefined }) {
+  const { t, i18n } = useTranslation(['catalog', 'common'])
+  const user = useAuthStore((s) => s.user)
+  const { data: event } = useEvent(eventId)
+  const { data: tiers, isLoading, error, isEmpty, refetch } = useTickets(eventId)
+  const purchase = usePurchaseTickets(eventId ?? '', user?.id)
+
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [formError, setFormError] = useState<string | null>(null)
+  const [placed, setPlaced] = useState<{ reference: string } | null>(null)
+
+  const currency = (event?.currency ?? tiers[0]?.currency ?? 'IDR') as Currency
+  const lines = tiers
+    .map((tier) => ({ tier, quantity: quantities[tier.id] ?? 0 }))
+    .filter((line) => line.quantity > 0)
+  const totalQuantity = lines.reduce((sum, line) => sum + line.quantity, 0)
+  const total = lines.reduce((sum, line) => sum + effectivePrice(line.tier) * line.quantity, 0)
+
+  function setQuantity(tier: TicketRow, next: number) {
+    setFormError(null)
+    setQuantities((prev) => ({ ...prev, [tier.id]: Math.max(0, Math.min(next, remainingOf(tier))) }))
   }
 
-  const handlePaymentComplete = (paymentId: string) => {
-    const pricing = calculateTicketPrice(selectedTicketType, quantity, {
-      isPwd: attendeeInfo.isPwd,
-      isChild: attendeeInfo.isChild,
-      age: attendeeInfo.age ? parseInt(attendeeInfo.age) : undefined
-    })
-    
-    const purchaseId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const qrCode = generateQRCode(purchaseId)
-    
-    const purchase: TicketPurchase = {
-      id: purchaseId,
-      ticket_type_id: selectedTicketType,
-      attendee_name: attendeeInfo.name,
-      attendee_email: attendeeInfo.email,
-      attendee_phone: attendeeInfo.phone,
-      attendee_age: attendeeInfo.age ? parseInt(attendeeInfo.age) : undefined,
-      attendee_id_number: attendeeInfo.idNumber,
-      quantity,
-      total_price_idr: pricing.price_idr,
-      total_price_usd: pricing.price_usd,
-      currency,
-      discount_applied: pricing.discount_applied,
-      payment_status: 'paid',
-      payment_reference: paymentId,
-      qr_code: qrCode,
-      purchase_date: new Date().toISOString(),
-      valid_from: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Valid for 7 days
-      is_used: false
-    }
-    
-    addPurchase(purchase)
-    
-    toast({
-      title: "Ticket Purchased Successfully!",
-      description: `QR Code: ${qrCode}`,
-    })
-    
-    // Reset form
-    setAttendeeInfo({
-      name: '',
-      email: '',
-      phone: '',
-      age: '',
-      idNumber: '',
-      isPwd: false,
-      isChild: false
-    })
-    setQuantity(1)
-    setSelectedTicketType('')
-    setShowPaymentDialog(false)
-  }
-  
+  async function submit() {
+    if (totalQuantity === 0) return setFormError(t('checkout.selectOne'))
+    if (totalQuantity > 20) return setFormError(t('checkout.maxPerOrder'))
+    setFormError(null)
 
-  
-  const handleAddTicketType = () => {
-    if (!newTicketForm.name || !newTicketForm.description) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      })
-      return
+    // One RPC per tier: `purchase_tickets` takes a single tier and does its
+    // oversell guard in one UPDATE … RETURNING, which is what makes two buyers
+    // for the last seat serialise. The client never sends a price.
+    try {
+      let reference = ''
+      for (const line of lines) {
+        const result = await purchase.mutateAsync({
+          ticketId: line.tier.id,
+          quantity: line.quantity,
+        })
+        reference = result.order_reference ?? result.order_id.slice(0, 8)
+      }
+      setQuantities({})
+      setPlaced({ reference })
+      toast.success(t('checkout.placed', { reference }))
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : t('checkout.failed')
+      setFormError(message)
+      toast.error(t('checkout.failed'))
     }
-    
-    const newTicket: TicketType = {
-      id: `ticket_type_${Date.now()}`,
-      ...newTicketForm,
-      benefits: newTicketForm.benefits.filter(b => b.trim() !== ''),
-      available_quantity: newTicketForm.max_quantity,
-      is_active: true,
-      age_restriction: 'all_ages'
-    }
-    
-    addTicketType(newTicket)
-    
-    toast({
-      title: "Ticket Type Added",
-      description: `${newTicket.name} has been created successfully`
-    })
-    
-    // Reset form
-    setNewTicketForm({
-      name: '',
-      description: '',
-      price_idr: 0,
-      price_usd: 0,
-      category: 'single_day',
-      day: 'saturday',
-      max_quantity: 1000,
-      benefits: [''],
-      requires_id: false
-    })
   }
-  
-  const formatCurrency = (amount: number, curr: 'IDR' | 'USD') => {
-    if (curr === 'IDR') {
-      return `Rp ${amount.toLocaleString('id-ID')}`
-    }
-    return `$${amount.toFixed(2)}`
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-10" aria-busy="true">
+        <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+        <div className="mt-6 space-y-3">
+          {[0, 1, 2].map((n) => (
+            <div key={n} className="h-24 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
+      </div>
+    )
   }
-  
-  const activeTicketTypes = getActiveTicketTypes()
-  const selectedTicket = ticketTypes.find(t => t.id === selectedTicketType)
-  const pricing = selectedTicket ? calculateTicketPrice(selectedTicketType, quantity, {
-    isPwd: attendeeInfo.isPwd,
-    isChild: attendeeInfo.isChild,
-    age: attendeeInfo.age ? parseInt(attendeeInfo.age) : undefined
-  }) : null
-  
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ticketing System</h1>
-          <p className="text-muted-foreground">
-            Manage ticket sales, validation, and analytics
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 pb-32 sm:py-10 lg:pb-10">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {t('checkout.title')}
+        </h1>
+        {event && <p className="mt-1 text-sm text-muted-foreground">{event.name}</p>}
+      </header>
+
+      {error && (
+        <EmptyState
+          icon={Ticket}
+          title={t('common:error.network')}
+          description={error.message}
+          action={
+            <Button variant="outline" onClick={refetch}>
+              {t('common:action.retry')}
+            </Button>
+          }
+        />
+      )}
+
+      {!error && isEmpty && (
+        <EmptyState icon={Ticket} title={t('checkout.empty')} description={t('checkout.emptyBody')} />
+      )}
+
+      {placed && (
+        <div className="mt-6 rounded-lg border border-success/40 bg-success-subtle p-4">
+          <p className="font-medium text-success">
+            {t('checkout.placed', { reference: placed.reference })}
           </p>
+          <p className="mt-1 text-sm text-foreground text-pretty">{t('checkout.placedBody')}</p>
+          <Button asChild className="mt-3" variant="outline">
+            <Link to="/wallet">{t('checkout.viewWallet')}</Link>
+          </Button>
         </div>
-        <div className="flex items-center gap-4">
-          <Select value={currency} onValueChange={(value: 'IDR' | 'USD') => setCurrency(value)}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="IDR">IDR</SelectItem>
-              <SelectItem value="USD">USD</SelectItem>
-            </SelectContent>
-          </Select>
-          <Badge variant="outline">
-            {formatCurrency(currency === 'IDR' ? salesStats.total_sales_idr : salesStats.total_sales_usd, currency)} Total Sales
-          </Badge>
-        </div>
-      </div>
-      
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tickets Sold</CardTitle>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{salesStats.total_tickets_sold}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all ticket types
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(currency === 'IDR' ? salesStats.total_sales_idr : salesStats.total_sales_usd, currency)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Total revenue generated
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Ticket Types</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeTicketTypes.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Available for purchase
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Validation Rate</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {purchases.length > 0 ? Math.round((purchases.filter(p => p.is_used).length / purchases.length) * 100) : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Tickets validated
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="sales">Ticket Sales</TabsTrigger>
-          <TabsTrigger value="validation">Validation</TabsTrigger>
-          <TabsTrigger value="management">Management</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-        
-        {/* Ticket Sales Tab */}
-        <TabsContent value="sales" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Purchase Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Purchase Tickets</CardTitle>
-                <CardDescription>
-                  Select ticket type and enter attendee information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ticket-type">Ticket Type</Label>
-                  <Select value={selectedTicketType} onValueChange={setSelectedTicketType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a ticket type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeTicketTypes.map((ticket) => (
-                        <SelectItem key={ticket.id} value={ticket.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{ticket.name}</span>
-                            <span className="ml-2 text-sm text-muted-foreground">
-                              {formatCurrency(currency === 'IDR' ? ticket.price_idr : ticket.price_usd, currency)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {selectedTicket && (
-                  <Card className="p-4 bg-muted/50">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">{selectedTicket.name}</h4>
-                      <p className="text-sm text-muted-foreground">{selectedTicket.description}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedTicket.benefits.map((benefit, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {benefit}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Available: {selectedTicket.available_quantity}</span>
-                        <span className="font-medium">
-                          {formatCurrency(currency === 'IDR' ? selectedTicket.price_idr : selectedTicket.price_usd, currency)}
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  />
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h4 className="font-medium">Attendee Information</h4>
-                  
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        value={attendeeInfo.name}
-                        onChange={(e) => setAttendeeInfo(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Enter full name"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={attendeeInfo.email}
-                        onChange={(e) => setAttendeeInfo(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        value={attendeeInfo.phone}
-                        onChange={(e) => setAttendeeInfo(prev => ({ ...prev, phone: e.target.value }))}
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="age">Age</Label>
-                      <Input
-                        id="age"
-                        type="number"
-                        value={attendeeInfo.age}
-                        onChange={(e) => setAttendeeInfo(prev => ({ ...prev, age: e.target.value }))}
-                        placeholder="Enter age"
-                      />
-                    </div>
-                  </div>
-                  
-                  {selectedTicket?.requires_id && (
-                    <div className="space-y-2">
-                      <Label htmlFor="id-number">ID Number *</Label>
-                      <Input
-                        id="id-number"
-                        value={attendeeInfo.idNumber}
-                        onChange={(e) => setAttendeeInfo(prev => ({ ...prev, idNumber: e.target.value }))}
-                        placeholder="Enter ID number"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="pwd"
-                        checked={attendeeInfo.isPwd}
-                        onCheckedChange={(checked) => setAttendeeInfo(prev => ({ ...prev, isPwd: checked as boolean }))}
-                      />
-                      <Label htmlFor="pwd" className="text-sm">
-                        Person with Disability (20% discount)
-                      </Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="child"
-                        checked={attendeeInfo.isChild}
-                        onCheckedChange={(checked) => setAttendeeInfo(prev => ({ ...prev, isChild: checked as boolean }))}
-                      />
-                      <Label htmlFor="child" className="text-sm">
-                        Child under 12 (50% discount)
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-                
-                {pricing && (
-                  <Card className="p-4 bg-primary/5">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span>Subtotal:</span>
-                        <span>{formatCurrency(currency === 'IDR' ? pricing.price_idr : pricing.price_usd, currency)}</span>
-                      </div>
-                      {pricing.discount_applied && (
-                        <div className="flex justify-between items-center text-green-600">
-                          <span>Discount ({pricing.discount_applied.percentage}%):</span>
-                          <span>-{formatCurrency(pricing.discount_applied.amount, currency)}</span>
-                        </div>
-                      )}
-                      <Separator />
-                      <div className="flex justify-between items-center font-medium text-lg">
-                        <span>Total:</span>
-                        <span>{formatCurrency(currency === 'IDR' ? pricing.price_idr : pricing.price_usd, currency)}</span>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-                
-                <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      onClick={handlePurchaseTicket} 
-                      className="w-full" 
-                      size="lg"
-                      disabled={!selectedTicketType || !attendeeInfo.name || !attendeeInfo.email}
-                    >
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Purchase Ticket
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Complete Purchase</DialogTitle>
-                      <DialogDescription>
-                        Secure payment processing for your tickets
-                      </DialogDescription>
-                    </DialogHeader>
-                    {selectedTicketType && (
-                      <PaymentProcessor
-                        ticketTypeId={selectedTicketType}
-                        quantity={quantity}
-                        onPaymentComplete={handlePaymentComplete}
-                        onCancel={() => setShowPaymentDialog(false)}
-                      />
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-            
-            {/* Available Ticket Types */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Ticket Types</CardTitle>
-                <CardDescription>
-                  Current ticket offerings and availability
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-4">
-                    {activeTicketTypes.map((ticket) => (
-                      <Card key={ticket.id} className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-medium">{ticket.name}</h4>
-                              <p className="text-sm text-muted-foreground">{ticket.description}</p>
-                            </div>
-                            <Badge variant={ticket.category === 'vip' ? 'default' : 'secondary'}>
-                              {ticket.category.toUpperCase()}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-sm">
-                            <span>Price:</span>
-                            <span className="font-medium">
-                              {formatCurrency(currency === 'IDR' ? ticket.price_idr : ticket.price_usd, currency)}
-                            </span>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span>Available:</span>
-                              <span>{ticket.available_quantity} / {ticket.max_quantity}</span>
-                            </div>
-                            <Progress 
-                              value={(ticket.available_quantity / ticket.max_quantity) * 100} 
-                              className="h-2"
-                            />
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-1">
-                            {ticket.benefits.slice(0, 3).map((benefit, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {benefit}
-                              </Badge>
-                            ))}
-                            {ticket.benefits.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{ticket.benefits.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        {/* Validation Tab */}
-        <TabsContent value="validation" className="space-y-4">
-          <div className="flex gap-4 mb-6">
-            <Button
-              variant={scannerMode === 'entry' ? 'default' : 'outline'}
-              onClick={() => setScannerMode('entry')}
-            >
-              Entry Scanner
-            </Button>
-            <Button
-              variant={scannerMode === 'exit' ? 'default' : 'outline'}
-              onClick={() => setScannerMode('exit')}
-            >
-              Exit Scanner
-            </Button>
-          </div>
-          
-          <TicketScanner
-            mode={scannerMode}
-            gateId={`GATE_${scannerMode.toUpperCase()}_01`}
-            staffId="STAFF_001"
-          />
-        </TabsContent>
-        
-        {/* Management Tab */}
-        <TabsContent value="management" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Add New Ticket Type */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Add New Ticket Type</CardTitle>
-                <CardDescription>
-                  Create a new ticket type for the event
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-name">Name</Label>
-                    <Input
-                      id="new-name"
-                      value={newTicketForm.name}
-                      onChange={(e) => setNewTicketForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Ticket name"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-category">Category</Label>
-                    <Select 
-                      value={newTicketForm.category} 
-                      onValueChange={(value: any) => setNewTicketForm(prev => ({ ...prev, category: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="single_day">Single Day</SelectItem>
-                        <SelectItem value="weekend">Weekend</SelectItem>
-                        <SelectItem value="vip">VIP</SelectItem>
-                        <SelectItem value="special">Special</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-price-idr">Price (IDR)</Label>
-                    <Input
-                      id="new-price-idr"
-                      type="number"
-                      value={newTicketForm.price_idr}
-                      onChange={(e) => setNewTicketForm(prev => ({ ...prev, price_idr: parseInt(e.target.value) || 0 }))}
-                      placeholder="Price in IDR"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-price-usd">Price (USD)</Label>
-                    <Input
-                      id="new-price-usd"
-                      type="number"
-                      step="0.01"
-                      value={newTicketForm.price_usd}
-                      onChange={(e) => setNewTicketForm(prev => ({ ...prev, price_usd: parseFloat(e.target.value) || 0 }))}
-                      placeholder="Price in USD"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-day">Day</Label>
-                    <Select 
-                      value={newTicketForm.day} 
-                      onValueChange={(value: any) => setNewTicketForm(prev => ({ ...prev, day: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="saturday">Saturday</SelectItem>
-                        <SelectItem value="sunday">Sunday</SelectItem>
-                        <SelectItem value="both">Both Days</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-quantity">Max Quantity</Label>
-                    <Input
-                      id="new-quantity"
-                      type="number"
-                      value={newTicketForm.max_quantity}
-                      onChange={(e) => setNewTicketForm(prev => ({ ...prev, max_quantity: parseInt(e.target.value) || 0 }))}
-                      placeholder="Maximum tickets"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new-description">Description</Label>
-                  <Textarea
-                    id="new-description"
-                    value={newTicketForm.description}
-                    onChange={(e) => setNewTicketForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Ticket description"
-                    rows={3}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Benefits</Label>
-                  {newTicketForm.benefits.map((benefit, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        value={benefit}
-                        onChange={(e) => {
-                          const newBenefits = [...newTicketForm.benefits]
-                          newBenefits[index] = e.target.value
-                          setNewTicketForm(prev => ({ ...prev, benefits: newBenefits }))
-                        }}
-                        placeholder="Enter benefit"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newBenefits = newTicketForm.benefits.filter((_, i) => i !== index)
-                          setNewTicketForm(prev => ({ ...prev, benefits: newBenefits }))
-                        }}
+      )}
+
+      {tiers.length > 0 && (
+        <div className="mt-6 gap-8 lg:flex">
+          <ul className="min-w-0 flex-1 space-y-3">
+            {tiers.map((tier) => {
+              const remaining = remainingOf(tier)
+              const available = onSale(tier)
+              const quantity = quantities[tier.id] ?? 0
+              return (
+                <li
+                  key={tier.id}
+                  className={
+                    quantity > 0
+                      ? 'rounded-lg border-2 border-primary bg-card p-4'
+                      : 'rounded-lg border border-border bg-card p-4'
+                  }
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2
+                        className={
+                          available
+                            ? 'font-medium text-card-foreground'
+                            : 'font-medium text-muted-foreground'
+                        }
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {tier.ticket_type}
+                      </h2>
+                      {tier.description && (
+                        <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                          {tier.description}
+                        </p>
+                      )}
+                      <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-medium tabular-nums text-foreground">
+                          {formatMoney(effectivePrice(tier), currency, i18n.language)}
+                        </span>
+                        {available ? (
+                          <span className="tabular-nums text-muted-foreground">
+                            {t('ticket.remaining', { count: remaining })}
+                          </span>
+                        ) : (
+                          <Badge variant="secondary">{t('ticket.soldOut')}</Badge>
+                        )}
+                        {tier.requires_id && (
+                          <Badge variant="warning">{tier.age_restriction ?? 'ID'}</Badge>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        disabled={!available || quantity === 0}
+                        aria-label={t('checkout.decrease', { tier: tier.ticket_type })}
+                        onClick={() => setQuantity(tier, quantity - 1)}
+                      >
+                        <Minus aria-hidden="true" />
+                      </Button>
+                      <span
+                        className="w-8 text-center text-base font-medium tabular-nums text-foreground"
+                        aria-live="polite"
+                      >
+                        {quantity}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        disabled={!available || quantity >= remaining}
+                        aria-label={t('checkout.increase', { tier: tier.ticket_type })}
+                        onClick={() => setQuantity(tier, quantity + 1)}
+                      >
+                        <Plus aria-hidden="true" />
                       </Button>
                     </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setNewTicketForm(prev => ({ ...prev, benefits: [...prev.benefits, ''] }))}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Benefit
-                  </Button>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="requires-id"
-                    checked={newTicketForm.requires_id}
-                    onCheckedChange={(checked) => setNewTicketForm(prev => ({ ...prev, requires_id: checked as boolean }))}
-                  />
-                  <Label htmlFor="requires-id">Requires ID verification</Label>
-                </div>
-                
-                <Button onClick={handleAddTicketType} className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Ticket Type
-                </Button>
-              </CardContent>
-            </Card>
-            
-            {/* Existing Ticket Types Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Manage Ticket Types</CardTitle>
-                <CardDescription>
-                  Edit or disable existing ticket types
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-4">
-                    {ticketTypes.map((ticket) => (
-                      <Card key={ticket.id} className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-medium">{ticket.name}</h4>
-                              <p className="text-sm text-muted-foreground">{ticket.description}</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="destructive" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Price:</span>
-                              <p>{formatCurrency(currency === 'IDR' ? ticket.price_idr : ticket.price_usd, currency)}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Available:</span>
-                              <p>{ticket.available_quantity} / {ticket.max_quantity}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Category:</span>
-                              <p className="capitalize">{ticket.category}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Status:</span>
-                              <Badge variant={ticket.is_active ? 'default' : 'secondary'}>
-                                {ticket.is_active ? 'Active' : 'Inactive'}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                </li>
+              )
+            })}
+          </ul>
+
+          {/* Desktop: sticky summary. Mobile: the fixed bar below. */}
+          <aside className="mt-6 hidden w-80 shrink-0 lg:mt-0 lg:block">
+            <div className="sticky top-20 rounded-lg border border-border bg-card p-4">
+              <h2 className="font-medium text-card-foreground">{t('checkout.summary')}</h2>
+              <ul className="mt-3 space-y-2 text-sm">
+                {lines.map((line) => (
+                  <li key={line.tier.id} className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate text-muted-foreground">
+                      {line.quantity} × {line.tier.ticket_type}
+                    </span>
+                    <span className="tabular-nums text-foreground">
+                      {formatMoney(
+                        effectivePrice(line.tier) * line.quantity,
+                        currency,
+                        i18n.language,
+                      )}
+                    </span>
+                  </li>
+                ))}
+                {lines.length === 0 && (
+                  <li className="text-muted-foreground">{t('checkout.selectOne')}</li>
+                )}
+              </ul>
+              <div className="mt-4 flex items-baseline justify-between border-t border-border pt-3">
+                <span className="text-sm text-muted-foreground">{t('ticket.total')}</span>
+                <span className="text-lg font-semibold tabular-nums text-foreground">
+                  {formatMoney(total, currency, i18n.language)}
+                </span>
+              </div>
+              {formError && (
+                <p role="alert" className="mt-3 text-sm text-destructive">
+                  {formError}
+                </p>
+              )}
+              <CheckoutButton
+                signedIn={Boolean(user)}
+                pending={purchase.isPending}
+                disabled={totalQuantity === 0}
+                onSubmit={submit}
+              />
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {tiers.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background p-4 lg:hidden">
+          {formError && (
+            <p role="alert" className="mb-2 text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {t('common:count.selected', { count: totalQuantity })}
+            </span>
+            <span className="text-lg font-semibold tabular-nums text-foreground">
+              {formatMoney(total, currency, i18n.language)}
+            </span>
           </div>
-        </TabsContent>
-        
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-6">
-            {/* Sales Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sales Analytics</CardTitle>
-                <CardDescription>
-                  Detailed breakdown of ticket sales and revenue
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(salesStats.sales_by_type).map(([typeId, stats]) => {
-                    const ticketType = ticketTypes.find(t => t.id === typeId)
-                    if (!ticketType) return null
-                    
-                    return (
-                      <Card key={typeId} className="p-4">
-                        <div className="space-y-2">
-                          <h4 className="font-medium">{ticketType.name}</h4>
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                              <span>Sold:</span>
-                              <span className="font-medium">{stats.quantity}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Revenue:</span>
-                              <span className="font-medium">
-                                {formatCurrency(currency === 'IDR' ? stats.revenue_idr : stats.revenue_usd, currency)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Remaining:</span>
-                              <span>{ticketType.available_quantity}</span>
-                            </div>
-                          </div>
-                          <Progress 
-                            value={((ticketType.max_quantity - ticketType.available_quantity) / ticketType.max_quantity) * 100}
-                            className="h-2"
-                          />
-                        </div>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Recent Purchases */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Purchases</CardTitle>
-                <CardDescription>
-                  Latest ticket purchases and transactions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-3">
-                    {purchases.slice(-20).reverse().map((purchase) => {
-                      const ticketType = ticketTypes.find(t => t.id === purchase.ticket_type_id)
-                      return (
-                        <div key={purchase.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{purchase.attendee_name}</p>
-                            <p className="text-sm text-muted-foreground">{ticketType?.name} × {purchase.quantity}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(purchase.purchase_date).toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">
-                              {formatCurrency(
-                                purchase.currency === 'IDR' ? purchase.total_price_idr : purchase.total_price_usd,
-                                purchase.currency
-                              )}
-                            </p>
-                            <Badge 
-                              variant={purchase.payment_status === 'paid' ? 'default' : 
-                                      purchase.payment_status === 'pending' ? 'secondary' : 'destructive'}
-                            >
-                              {purchase.payment_status}
-                            </Badge>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+          <CheckoutButton
+            signedIn={Boolean(user)}
+            pending={purchase.isPending}
+            disabled={totalQuantity === 0}
+            onSubmit={submit}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-export default TicketingSystem
+function CheckoutButton({
+  signedIn,
+  pending,
+  disabled,
+  onSubmit,
+}: {
+  signedIn: boolean
+  pending: boolean
+  disabled: boolean
+  onSubmit: () => void
+}) {
+  const { t } = useTranslation(['catalog', 'common'])
+
+  if (!signedIn) {
+    return (
+      <Button asChild className="mt-4 w-full">
+        <Link to={`/login?next=${encodeURIComponent(window.location.pathname)}`}>
+          {t('checkout.signIn')}
+        </Link>
+      </Button>
+    )
+  }
+
+  return (
+    <Button className="mt-4 w-full" disabled={disabled || pending} onClick={onSubmit}>
+      {pending ? t('ticket.processing') : t('ticket.checkout')}
+    </Button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Organizer tier admin
+// ---------------------------------------------------------------------------
+
+function TierAdmin({ eventId }: { eventId: string | undefined }) {
+  const { t, i18n } = useTranslation(['catalog', 'common'])
+  const { data: event } = useEvent(eventId)
+  const { data: tiers, isLoading, error, isEmpty, refetch } = useTickets(eventId)
+  const summary = useFinancialSummary(eventId)
+  const save = useSaveTicket(eventId ?? '')
+  const [editing, setEditing] = useState<Partial<TicketRow> | null>(null)
+
+  const currency = (event?.currency ?? tiers[0]?.currency ?? 'IDR') as Currency
+
+  const sales = useMemo(() => {
+    const rows = summary.data.filter((row) => row.transaction_type === 'ticket_sale')
+    return {
+      net: rows.reduce((sum, row) => sum + Number(row.net_amount), 0),
+      pending: rows.reduce((sum, row) => sum + Number(row.pending_amount), 0),
+    }
+  }, [summary.data])
+
+  return (
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-10">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            {t('tier.title')}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground text-pretty">{t('tier.subtitle')}</p>
+        </div>
+        <Button onClick={() => setEditing({})}>{t('tier.new')}</Button>
+      </header>
+
+      {/* Totals come from `event_financial_summary`, never from reducing orders
+          in this component — criterion 4. */}
+      <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <dt className="text-sm text-muted-foreground">{t('tier.revenue')}</dt>
+          <dd className="mt-1 text-2xl font-semibold tabular-nums text-card-foreground">
+            {formatMoney(sales.net, currency, i18n.language)}
+          </dd>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <dt className="text-sm text-muted-foreground">{t('tier.pendingRevenue')}</dt>
+          <dd className="mt-1 text-2xl font-semibold tabular-nums text-card-foreground">
+            {formatMoney(sales.pending, currency, i18n.language)}
+          </dd>
+        </div>
+      </dl>
+
+      {isLoading && (
+        <div className="mt-6 space-y-3" aria-busy="true">
+          {[0, 1, 2].map((n) => (
+            <div key={n} className="h-24 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && error && (
+        <EmptyState
+          icon={Ticket}
+          title={t('common:error.network')}
+          description={error.message}
+          action={
+            <Button variant="outline" onClick={refetch}>
+              {t('common:action.retry')}
+            </Button>
+          }
+        />
+      )}
+
+      {!isLoading && !error && isEmpty && (
+        <EmptyState
+          icon={Ticket}
+          title={t('tier.empty')}
+          description={t('tier.emptyBody')}
+          action={<Button onClick={() => setEditing({})}>{t('tier.new')}</Button>}
+        />
+      )}
+
+      <ul className="mt-6 space-y-3">
+        {tiers.map((tier) => (
+          <li key={tier.id} className="rounded-lg border border-border bg-card p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-medium text-card-foreground">{tier.ticket_type}</h2>
+                <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                  {formatMoney(Number(tier.price), currency, i18n.language)}
+                  {tier.sale_end
+                    ? ` · ${t('ticket.salesEnd', {
+                        date: new Intl.DateTimeFormat(i18n.language, {
+                          day: 'numeric',
+                          month: 'short',
+                        }).format(new Date(tier.sale_end)),
+                      })}`
+                    : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={tier.status === 'active' ? 'success' : 'secondary'}>
+                  {tier.status === 'sold_out' ? t('ticket.soldOut') : tier.status}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={() => setEditing(tier)}>
+                  {t('common:action.edit')}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Progress
+                value={
+                  tier.quantity_available > 0
+                    ? (tier.quantity_sold / tier.quantity_available) * 100
+                    : 0
+                }
+              />
+              <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                {t('tier.sold', { sold: tier.quantity_sold, total: tier.quantity_available })}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <TierDialog
+        value={editing}
+        onClose={() => setEditing(null)}
+        onSave={async (values) => {
+          try {
+            await save.mutateAsync(values)
+            setEditing(null)
+            toast.success(t('common:status.saved'))
+          } catch (cause) {
+            toast.error(cause instanceof Error ? cause.message : t('tier.saveError'))
+          }
+        }}
+        pending={save.isPending}
+      />
+    </div>
+  )
+}
+
+function TierDialog({
+  value,
+  onClose,
+  onSave,
+  pending,
+}: {
+  value: Partial<TicketRow> | null
+  onClose: () => void
+  onSave: (values: Partial<TicketRow> & { id?: string }) => void
+  pending: boolean
+}) {
+  const { t } = useTranslation(['catalog', 'common'])
+  const [draft, setDraft] = useState<Partial<TicketRow>>({})
+  const [touched, setTouched] = useState<Partial<TicketRow> | null>(null)
+
+  // Reset the form when a different tier is opened, without an effect.
+  if (value !== touched) {
+    setTouched(value)
+    setDraft(value ?? {})
+  }
+
+  const nameInvalid = !draft.ticket_type?.trim()
+
+  return (
+    <Dialog open={value !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{value?.id ? t('tier.edit') : t('tier.new')}</DialogTitle>
+          <DialogDescription>{t('tier.subtitle')}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="tier-name">{t('tier.name')}</Label>
+            <Input
+              id="tier-name"
+              value={draft.ticket_type ?? ''}
+              onChange={(e) => setDraft({ ...draft, ticket_type: e.target.value })}
+              aria-invalid={nameInvalid ? true : undefined}
+              className="coarse:min-h-11"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tier-price">{t('ticket.price')}</Label>
+              <Input
+                id="tier-price"
+                type="number"
+                min={0}
+                value={draft.price ?? 0}
+                onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
+                className="tabular-nums coarse:min-h-11"
+              />
+            </div>
+            <div>
+              <Label htmlFor="tier-quantity">{t('tier.quantity')}</Label>
+              <Input
+                id="tier-quantity"
+                type="number"
+                min={0}
+                value={draft.quantity_available ?? 0}
+                onChange={(e) => setDraft({ ...draft, quantity_available: Number(e.target.value) })}
+                className="tabular-nums coarse:min-h-11"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="tier-sale-end">{t('tier.saleEnd')}</Label>
+              <Input
+                id="tier-sale-end"
+                type="date"
+                value={draft.sale_end?.slice(0, 10) ?? ''}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    sale_end: e.target.value ? new Date(e.target.value).toISOString() : null,
+                  })
+                }
+                className="coarse:min-h-11"
+              />
+            </div>
+            <div>
+              <Label htmlFor="tier-status">{t('tier.status')}</Label>
+              <Select
+                value={draft.status ?? 'active'}
+                onValueChange={(status) =>
+                  setDraft({ ...draft, status: status as TicketRow['status'] })
+                }
+              >
+                <SelectTrigger id="tier-status" className="coarse:min-h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">active</SelectItem>
+                  <SelectItem value="inactive">inactive</SelectItem>
+                  <SelectItem value="sold_out">sold_out</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="tier-description">{t('tier.description')}</Label>
+            <Textarea
+              id="tier-description"
+              value={draft.description ?? ''}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            {t('common:action.cancel')}
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={pending || nameInvalid}
+            onClick={() => onSave(draft)}
+          >
+            {pending ? t('common:status.saving') : t('common:action.save')}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

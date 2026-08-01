@@ -1,1145 +1,327 @@
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Input } from './ui/input'
-import { Textarea } from './ui/textarea'
-import { Switch } from './ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { ScrollArea } from './ui/scroll-area'
+import { useState } from 'react'
+import { Megaphone, Pin, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Async, Page, PageHeader } from '@/components/ops'
+import { useDateTime } from '@/lib/format'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Megaphone,
-  Plus,
-  Search,
-  Eye,
-  Heart,
-  Share2,
-  Edit,
-  Pin,
-  PinOff,
-  Star,
-  Image,
-  FileText,
-  Link,
-  Download,
-  BarChart3,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Calendar,
-  Settings,
-  XCircle,
-  RefreshCw,
-  Info,
-  MapPin,
-  Send,
-  Trash2
-} from 'lucide-react'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  pick,
+  queryKeys,
+  useAnnouncements,
+  useRealtimeTable,
+  useSaveAnnouncement,
+} from '@/lib/queries'
+import type {
+  AnnouncementRow,
+  AnnouncementSeverity,
+  Audience,
+  Locale,
+  LocalisedText,
+} from '@/lib/database.types'
+import { useAuthStore } from '@/stores/authStore'
+import { cn } from '@/lib/utils'
 
-interface Announcement {
-  id: string
-  title: string
-  content: string
-  summary?: string
-  type: 'general' | 'urgent' | 'event' | 'system' | 'emergency' | 'update' | 'promotion'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'draft' | 'scheduled' | 'published' | 'archived'
-  visibility: 'public' | 'attendees' | 'circles' | 'staff' | 'vip'
-  author: {
-    id: string
-    name: string
-    role: string
-    avatar?: string
-  }
-  created_at: string
-  updated_at: string
-  published_at?: string
-  scheduled_at?: string
-  expires_at?: string
-  pinned: boolean
-  featured: boolean
-  tags: string[]
-  categories: string[]
-  target_audience: string[]
-  location?: string
-  event_id?: string
-  attachments: {
-    id: string
-    name: string
-    type: 'image' | 'document' | 'link'
-    url: string
-    size?: number
-  }[]
-  metrics: {
-    views: number
-    likes: number
-    shares: number
-    comments: number
-    click_through_rate: number
-  }
-  push_notification: {
-    enabled: boolean
-    title?: string
-    message?: string
-    sound: boolean
-    vibration: boolean
-  }
-  social_media: {
-    twitter: boolean
-    facebook: boolean
-    instagram: boolean
-    discord: boolean
-  }
-}
+/**
+ * Compose into, and read from, the `announcements` table.
+ *
+ * `title` and `body` are jsonb keyed {en,ja,id}, not strings: the notification
+ * fan-out must not freeze one language at write time, because the recipient's
+ * locale is theirs to change afterwards. The composer therefore writes all three
+ * and `pick()` renders one.
+ *
+ * The metrics, social-media and template surfaces are gone — outside the scope
+ * fence — and so is the placeholder string that stood in for a chart there.
+ * What is left is the thing an organizer actually needs at 07:40 on day one.
+ */
+export default function AnnouncementSystem() {
+  const { t, i18n } = useTranslation(['organizer', 'common'])
+  const { eventId } = useParams()
+  const dateTime = useDateTime()
+  const [editing, setEditing] = useState<AnnouncementRow | 'new' | null>(null)
 
-interface AnnouncementTemplate {
-  id: string
-  name: string
-  description: string
-  type: string
-  content: string
-  variables: string[]
-  category: string
-}
+  const feed = useAnnouncements(eventId)
+  useRealtimeTable('announcements', queryKeys.announcements.list(eventId ?? '', {}), { eventId })
 
-const AnnouncementSystem: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState('announcements')
-  const [selectedFilter, setSelectedFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
-
-  
-  // Mock announcements data
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: 'ann-1',
-      title: 'Welcome to Comic Frontier 2024!',
-      content: 'We\'re excited to welcome you to Comic Frontier 2024! This year\'s event features over 500 circles, special guests, workshops, and amazing activities. Please check the event schedule and explore the interactive map to make the most of your visit.',
-      summary: 'Welcome message for Comic Frontier 2024 attendees',
-      type: 'general',
-      priority: 'medium',
-      status: 'published',
-      visibility: 'public',
-      author: {
-        id: 'admin-1',
-        name: 'Event Organizer',
-        role: 'Administrator',
-        avatar: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20event%20organizer%20avatar&image_size=square'
-      },
-      created_at: '2025-01-15T08:00:00Z',
-      updated_at: '2024-01-15T08:00:00Z',
-      published_at: '2024-01-15T08:00:00Z',
-      pinned: true,
-      featured: true,
-      tags: ['welcome', 'event', 'general'],
-      categories: ['General'],
-      target_audience: ['attendees', 'circles'],
-      attachments: [
-        {
-          id: 'att-1',
-          name: 'Event Map',
-          type: 'image',
-          url: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=convention%20floor%20map%20layout&image_size=landscape_16_9',
-          size: 2048000
+  return (
+    <Page className="max-w-4xl">
+      <PageHeader
+        title={t('announcement.title')}
+        description={t('announcement.subtitle')}
+        actions={
+          <Button onClick={() => setEditing('new')}>
+            <Plus className="size-4" aria-hidden="true" />
+            {t('announcement.compose')}
+          </Button>
         }
-      ],
-      metrics: {
-        views: 1250,
-        likes: 89,
-        shares: 23,
-        comments: 15,
-        click_through_rate: 0.12
-      },
-      push_notification: {
-        enabled: true,
-        title: 'Welcome to Comic Frontier!',
-        message: 'Check out the event guide and start exploring!',
-        sound: true,
-        vibration: false
-      },
-      social_media: {
-        twitter: true,
-        facebook: true,
-        instagram: true,
-        discord: true
-      }
-    },
-    {
-      id: 'ann-2',
-      title: 'Queue Alert: Main Entrance Congestion',
-      content: 'Due to high attendance, the main entrance is experiencing longer wait times. We recommend using the East or West entrances for faster entry. Security staff are available to assist with directions.',
-      summary: 'Alternative entrance recommendations due to congestion',
-      type: 'urgent',
-      priority: 'high',
-      status: 'published',
-      visibility: 'public',
-      author: {
-        id: 'staff-1',
-        name: 'Security Team',
-        role: 'Staff',
-        avatar: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=security%20staff%20avatar&image_size=square'
-      },
-      created_at: '2024-01-15T10:30:00Z',
-      updated_at: '2024-01-15T10:30:00Z',
-      published_at: '2024-01-15T10:30:00Z',
-      expires_at: '2024-01-15T14:00:00Z',
-      pinned: false,
-      featured: false,
-      tags: ['queue', 'entrance', 'urgent'],
-      categories: ['Operations'],
-      target_audience: ['attendees'],
-      location: 'Main Entrance',
-      attachments: [],
-      metrics: {
-        views: 890,
-        likes: 12,
-        shares: 45,
-        comments: 8,
-        click_through_rate: 0.18
-      },
-      push_notification: {
-        enabled: true,
-        title: 'Queue Alert',
-        message: 'Use East/West entrances for faster entry',
-        sound: true,
-        vibration: true
-      },
-      social_media: {
-        twitter: true,
-        facebook: false,
-        instagram: false,
-        discord: true
-      }
-    },
-    {
-      id: 'ann-3',
-      title: 'Special Guest: Yuki Tanaka Live Drawing Session',
-      content: 'Join us for an exclusive live drawing session with renowned manga artist Yuki Tanaka at 2:00 PM in the Main Stage area. Limited seating available - first come, first served!',
-      summary: 'Live drawing session with special guest artist',
-      type: 'event',
-      priority: 'medium',
-      status: 'published',
-      visibility: 'public',
-      author: {
-        id: 'event-1',
-        name: 'Event Coordinator',
-        role: 'Staff',
-        avatar: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=event%20coordinator%20avatar&image_size=square'
-      },
-      created_at: '2025-01-15T09:00:00Z',
-      updated_at: '2024-01-15T09:00:00Z',
-      published_at: '2024-01-15T09:00:00Z',
-      scheduled_at: '2024-01-15T14:00:00Z',
-      pinned: false,
-      featured: true,
-      tags: ['guest', 'drawing', 'event', 'artist'],
-      categories: ['Events'],
-      target_audience: ['attendees'],
-      location: 'Main Stage',
-      event_id: 'event-drawing-session',
-      attachments: [
-        {
-          id: 'att-2',
-          name: 'Artist Portfolio',
-          type: 'link',
-          url: 'https://example.com/yuki-tanaka-portfolio'
-        }
-      ],
-      metrics: {
-        views: 567,
-        likes: 78,
-        shares: 34,
-        comments: 22,
-        click_through_rate: 0.15
-      },
-      push_notification: {
-        enabled: true,
-        title: 'Special Guest Event',
-        message: 'Yuki Tanaka live drawing at 2 PM!',
-        sound: true,
-        vibration: false
-      },
-      social_media: {
-        twitter: true,
-        facebook: true,
-        instagram: true,
-        discord: true
-      }
-    },
-    {
-      id: 'ann-4',
-      title: 'System Maintenance Notice',
-      content: 'The payment system will undergo scheduled maintenance from 11:00 AM to 11:15 AM. During this time, card payments may be temporarily unavailable. Cash payments will still be accepted.',
-      summary: 'Scheduled payment system maintenance',
-      type: 'system',
-      priority: 'medium',
-      status: 'scheduled',
-      visibility: 'public',
-      author: {
-        id: 'tech-1',
-        name: 'Technical Team',
-        role: 'Administrator',
-        avatar: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=technical%20support%20avatar&image_size=square'
-      },
-      created_at: '2025-01-15T08:30:00Z',
-      updated_at: '2024-01-15T08:30:00Z',
-      scheduled_at: '2024-01-15T10:45:00Z',
-      pinned: false,
-      featured: false,
-      tags: ['maintenance', 'payment', 'system'],
-      categories: ['Technical'],
-      target_audience: ['attendees', 'circles'],
-      attachments: [],
-      metrics: {
-        views: 0,
-        likes: 0,
-        shares: 0,
-        comments: 0,
-        click_through_rate: 0
-      },
-      push_notification: {
-        enabled: true,
-        title: 'System Maintenance',
-        message: 'Payment system maintenance 11:00-11:15 AM',
-        sound: false,
-        vibration: false
-      },
-      social_media: {
-        twitter: false,
-        facebook: false,
-        instagram: false,
-        discord: true
-      }
-    },
-    {
-      id: 'ann-5',
-      title: 'Lost & Found Update',
-      content: 'Several items have been turned in to the Lost & Found booth near the information desk. If you\'re missing any personal belongings, please visit us with a description of your item.',
-      summary: 'Lost & Found items available for collection',
-      type: 'general',
-      priority: 'low',
-      status: 'published',
-      visibility: 'public',
-      author: {
-        id: 'info-1',
-        name: 'Information Desk',
-        role: 'Staff',
-        avatar: 'https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=information%20desk%20staff%20avatar&image_size=square'
-      },
-      created_at: '2024-01-15T11:00:00Z',
-      updated_at: '2024-01-15T11:00:00Z',
-      published_at: '2024-01-15T11:00:00Z',
-      pinned: false,
-      featured: false,
-      tags: ['lost-found', 'information'],
-      categories: ['Services'],
-      target_audience: ['attendees'],
-      location: 'Information Desk',
-      attachments: [],
-      metrics: {
-        views: 234,
-        likes: 5,
-        shares: 2,
-        comments: 1,
-        click_through_rate: 0.08
-      },
-      push_notification: {
-        enabled: false,
-        sound: false,
-        vibration: false
-      },
-      social_media: {
-        twitter: false,
-        facebook: false,
-        instagram: false,
-        discord: false
-      }
-    }
-  ])
+      />
 
-  // Mock templates data
-  const templates: AnnouncementTemplate[] = [
-    {
-      id: 'template-1',
-      name: 'Queue Alert',
-      description: 'Standard template for queue-related announcements',
-      type: 'urgent',
-      content: 'Queue Alert: {{location}}\n\n{{message}}\n\nRecommended alternatives: {{alternatives}}',
-      variables: ['location', 'message', 'alternatives'],
-      category: 'Operations'
-    },
-    {
-      id: 'template-2',
-      name: 'Event Announcement',
-      description: 'Template for special events and activities',
-      type: 'event',
-      content: 'Special Event: {{event_name}}\n\nJoin us for {{description}} at {{time}} in {{location}}.\n\n{{additional_info}}',
-      variables: ['event_name', 'description', 'time', 'location', 'additional_info'],
-      category: 'Events'
-    },
-    {
-      id: 'template-3',
-      name: 'System Maintenance',
-      description: 'Template for system maintenance notifications',
-      type: 'system',
-      content: 'System Maintenance Notice\n\n{{system_name}} will undergo maintenance from {{start_time}} to {{end_time}}.\n\n{{impact_description}}',
-      variables: ['system_name', 'start_time', 'end_time', 'impact_description'],
-      category: 'Technical'
-    }
-  ]
-
-  const [newAnnouncement, setNewAnnouncement] = useState<Partial<Announcement>>({
-    title: '',
-    content: '',
-    type: 'general',
-    priority: 'medium',
-    visibility: 'public',
-    pinned: false,
-    featured: false,
-    tags: [],
-    categories: [],
-    target_audience: ['attendees'],
-    push_notification: {
-      enabled: false,
-      sound: false,
-      vibration: false
-    },
-    social_media: {
-      twitter: false,
-      facebook: false,
-      instagram: false,
-      discord: false
-    }
-  })
-
-  const announcementFilters = [
-    { value: 'all', label: 'All', icon: Megaphone },
-    { value: 'published', label: 'Published', icon: CheckCircle },
-    { value: 'draft', label: 'Drafts', icon: Edit },
-    { value: 'scheduled', label: 'Scheduled', icon: Clock },
-    { value: 'urgent', label: 'Urgent', icon: AlertCircle },
-    { value: 'pinned', label: 'Pinned', icon: Pin },
-    { value: 'featured', label: 'Featured', icon: Star }
-  ]
-
-  const getFilteredAnnouncements = () => {
-    let filtered = announcements
-    
-    // Apply status/type filters
-    if (selectedFilter === 'published') {
-      filtered = filtered.filter(a => a.status === 'published')
-    } else if (selectedFilter === 'draft') {
-      filtered = filtered.filter(a => a.status === 'draft')
-    } else if (selectedFilter === 'scheduled') {
-      filtered = filtered.filter(a => a.status === 'scheduled')
-    } else if (selectedFilter === 'urgent') {
-      filtered = filtered.filter(a => a.type === 'urgent' || a.priority === 'urgent')
-    } else if (selectedFilter === 'pinned') {
-      filtered = filtered.filter(a => a.pinned)
-    } else if (selectedFilter === 'featured') {
-      filtered = filtered.filter(a => a.featured)
-    }
-    
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(a => 
-        a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    }
-    
-    return filtered.sort((a, b) => {
-      // Sort by pinned first, then by date
-      if (a.pinned && !b.pinned) return -1
-      if (!a.pinned && b.pinned) return 1
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-  }
-
-  const getAnnouncementIcon = (type: string) => {
-    switch (type) {
-      case 'urgent': return <AlertCircle className="h-5 w-5 text-red-600" />
-      case 'event': return <Calendar className="h-5 w-5 text-blue-600" />
-      case 'system': return <Settings className="h-5 w-5 text-gray-600" />
-      case 'emergency': return <XCircle className="h-5 w-5 text-red-700" />
-      case 'update': return <RefreshCw className="h-5 w-5 text-green-600" />
-      case 'promotion': return <Star className="h-5 w-5 text-yellow-600" />
-      default: return <Info className="h-5 w-5 text-blue-600" />
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published': return 'bg-green-100 text-green-800 border-green-200'
-      case 'draft': return 'bg-gray-100 text-gray-800 border-gray-200'
-      case 'scheduled': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'archived': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200'
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date()
-    const time = new Date(timestamp)
-    const diffMs = now.getTime() - time.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    const diffHours = Math.floor(diffMins / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-    const diffDays = Math.floor(diffHours / 24)
-    return `${diffDays}d ago`
-  }
-
-  const togglePin = (announcementId: string) => {
-    setAnnouncements(prev => 
-      prev.map(a => a.id === announcementId ? { ...a, pinned: !a.pinned } : a)
-    )
-  }
-
-  const toggleFeatured = (announcementId: string) => {
-    setAnnouncements(prev => 
-      prev.map(a => a.id === announcementId ? { ...a, featured: !a.featured } : a)
-    )
-  }
-
-  const deleteAnnouncement = (announcementId: string) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== announcementId))
-  }
-
-  const publishAnnouncement = (announcementId: string) => {
-    setAnnouncements(prev => 
-      prev.map(a => a.id === announcementId ? { 
-        ...a, 
-        status: 'published', 
-        published_at: new Date().toISOString() 
-      } : a)
-    )
-  }
-
-  const createAnnouncement = () => {
-    const announcement: Announcement = {
-      ...newAnnouncement,
-      id: `ann-${Date.now()}`,
-      author: {
-        id: 'current-user',
-        name: 'Current User',
-        role: 'Administrator'
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      status: 'draft',
-      attachments: [],
-      metrics: {
-        views: 0,
-        likes: 0,
-        shares: 0,
-        comments: 0,
-        click_through_rate: 0
-      }
-    } as Announcement
-    
-    setAnnouncements(prev => [announcement, ...prev])
-    setNewAnnouncement({
-      title: '',
-      content: '',
-      type: 'general',
-      priority: 'medium',
-      visibility: 'public',
-      pinned: false,
-      featured: false,
-      tags: [],
-      categories: [],
-      target_audience: ['attendees'],
-      push_notification: {
-        enabled: false,
-        sound: false,
-        vibration: false
-      },
-      social_media: {
-        twitter: false,
-        facebook: false,
-        instagram: false,
-        discord: false
-      }
-    })
-    setShowCreateDialog(false)
-  }
-
-  const filteredAnnouncements = getFilteredAnnouncements()
-
-  const AnnouncementCard: React.FC<{ announcement: Announcement }> = ({ announcement }) => {
-    return (
-      <Card className={`transition-all hover:shadow-md ${
-        announcement.pinned ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''
-      } ${announcement.featured ? 'ring-2 ring-yellow-400' : ''}`}>
-        <CardContent className="p-4">
-          <div className="flex items-start space-x-3">
-            {/* Announcement Icon */}
-            <div className="flex-shrink-0">
-              {getAnnouncementIcon(announcement.type)}
-            </div>
-            
-            {/* Announcement Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <h4 className="font-medium text-lg text-gray-900">
-                    {announcement.title}
-                  </h4>
-                  {announcement.pinned && <Pin className="h-4 w-4 text-blue-600" />}
-                  {announcement.featured && <Star className="h-4 w-4 text-yellow-600" />}
+      <div className="mt-6">
+        <Async
+          state={feed}
+          icon={Megaphone}
+          emptyTitle={t('announcement.empty')}
+          emptyDescription={t('announcement.emptyBody')}
+          emptyAction={<Button onClick={() => setEditing('new')}>{t('announcement.compose')}</Button>}
+        >
+          <ul className="space-y-3">
+            {feed.data.map((row) => (
+              <li
+                key={row.id}
+                className="rounded-lg border border-border bg-card p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h2 className="font-medium text-card-foreground text-pretty">
+                    {row.pinned && (
+                      <Pin
+                        className="mr-1 inline size-3.5 text-muted-foreground"
+                        aria-label={t('announcement.pinned')}
+                      />
+                    )}
+                    {pick(row.title, i18n.language)}
+                  </h2>
+                  <div className="flex shrink-0 flex-wrap gap-1.5">
+                    <Badge variant={SEVERITY_VARIANT[row.severity]}>
+                      {t(`announcement.severity.${row.severity}`)}
+                    </Badge>
+                    <Badge variant={row.status === 'published' ? 'success' : 'outline'}>
+                      {t(`announcement.status.${row.status}`)}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Badge className={getStatusColor(announcement.status)}>
-                    {announcement.status}
-                  </Badge>
-                  <Badge className={getPriorityColor(announcement.priority)}>
-                    {announcement.priority}
-                  </Badge>
-                </div>
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-3 line-clamp-3">
-                {announcement.content}
-              </p>
-              
-              {/* Metadata */}
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                <div className="flex items-center space-x-4">
-                  <span>by {announcement.author.name}</span>
-                  <span>{formatTimeAgo(announcement.created_at)}</span>
-                  {announcement.location && (
-                    <span className="flex items-center">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {announcement.location}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className="flex items-center">
-                    <Eye className="h-3 w-3 mr-1" />
-                    {announcement.metrics.views}
-                  </span>
-                  <span className="flex items-center">
-                    <Heart className="h-3 w-3 mr-1" />
-                    {announcement.metrics.likes}
-                  </span>
-                  <span className="flex items-center">
-                    <Share2 className="h-3 w-3 mr-1" />
-                    {announcement.metrics.shares}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Tags */}
-              {announcement.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {announcement.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      #{tag}
+
+                <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                  {pick(row.body, i18n.language)}
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {row.audience.map((audience) => (
+                    <Badge key={audience} variant="outline">
+                      {t(`announcement.audienceOption.${audience}`)}
                     </Badge>
                   ))}
-                </div>
-              )}
-              
-              {/* Attachments */}
-              {announcement.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {announcement.attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center space-x-1 text-xs bg-gray-100 rounded px-2 py-1">
-                      {attachment.type === 'image' && <Image className="h-3 w-3" />}
-                      {attachment.type === 'document' && <FileText className="h-3 w-3" />}
-                      {attachment.type === 'link' && <Link className="h-3 w-3" />}
-                      <span>{attachment.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Actions */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {announcement.status === 'draft' && (
-                    <Button
-                      size="sm"
-                      onClick={() => publishAnnouncement(announcement.id)}
-                      className="text-xs"
-                    >
-                      <Send className="h-3 w-3 mr-1" />
-                      Publish
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedAnnouncement(announcement)}
-                    className="text-xs"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    View
+                  <span className="tabular-nums">
+                    {row.publish_at ? dateTime(row.publish_at) : t('announcement.notScheduled')}
+                  </span>
+                  <span className="flex-1" />
+                  <Button variant="outline" size="sm" onClick={() => setEditing(row)}>
+                    {t('common:action.edit')}
                   </Button>
                 </div>
-                
-                <div className="flex items-center space-x-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => togglePin(announcement.id)}
-                    className="text-xs"
-                  >
-                    {announcement.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => toggleFeatured(announcement.id)}
-                    className="text-xs"
-                  >
-                    {announcement.featured ? <Star className="h-3 w-3 text-yellow-600" /> : <Star className="h-3 w-3" />}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-xs"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => deleteAnnouncement(announcement.id)}
-                    className="text-xs text-red-600"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </li>
+            ))}
+          </ul>
+        </Async>
+      </div>
+
+      {editing && (
+        <Composer
+          eventId={eventId}
+          row={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </Page>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
+const SEVERITY_VARIANT: Record<AnnouncementSeverity, 'info' | 'warning' | 'danger'> = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'danger',
+}
+
+const LOCALES: Locale[] = ['en', 'ja', 'id']
+const SEVERITIES: AnnouncementSeverity[] = ['info', 'warning', 'critical']
+const AUDIENCES: Audience[] = ['public', 'attendee', 'circle', 'staff']
+
+function Composer({
+  eventId,
+  row,
+  onClose,
+}: {
+  eventId: string | undefined
+  row: AnnouncementRow | null
+  onClose: () => void
+}) {
+  const { t } = useTranslation(['organizer', 'common'])
+  const userId = useAuthStore((s) => s.user?.id)
+  const save = useSaveAnnouncement(eventId ?? '')
+
+  const [title, setTitle] = useState<LocalisedText>(row?.title ?? {})
+  const [body, setBody] = useState<LocalisedText>(row?.body ?? {})
+  const [severity, setSeverity] = useState<AnnouncementSeverity>(row?.severity ?? 'info')
+  const [audience, setAudience] = useState<Audience[]>(row?.audience ?? ['public'])
+  const [pinned, setPinned] = useState(row?.pinned ?? false)
+
+  // English is the i18next fallback, so an announcement without it renders as an
+  // empty card for every reader whose locale was not filled in.
+  const valid = Boolean(title.en?.trim() && body.en?.trim() && audience.length > 0)
+
+  const submit = (status: 'draft' | 'published') => {
+    save.mutate(
+      {
+        ...(row ? { id: row.id } : {}),
+        title,
+        body,
+        severity,
+        audience,
+        pinned,
+        status,
+        publish_at: status === 'published' ? (row?.publish_at ?? new Date().toISOString()) : null,
+        created_by: row?.created_by ?? userId ?? null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(status === 'published' ? t('announcement.publishedOk') : t('common:status.saved'))
+          onClose()
+        },
+        onError: () => toast.error(t('common:error.generic')),
+      },
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Announcement System</h1>
-          <p className="text-gray-600">Manage event announcements and communications</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            New Announcement
-          </Button>
-        </div>
-      </div>
+    <Dialog open onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{row ? t('common:action.edit') : t('announcement.compose')}</DialogTitle>
+          <DialogDescription>{t('announcement.composeHint')}</DialogDescription>
+        </DialogHeader>
 
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="en" className="mt-4">
+          <TabsList>
+            {LOCALES.map((locale) => (
+              <TabsTrigger key={locale} value={locale} className="coarse:min-h-11">
+                {t(`common:language.${locale}`)}
+                {locale === 'en' && <span aria-hidden="true"> *</span>}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <TabsContent value="announcements" className="space-y-6">
-          {/* Filters and Search */}
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-wrap gap-2">
-              {announcementFilters.map((filter) => {
-                const Icon = filter.icon
-                const count = filter.value === 'all' 
-                  ? announcements.length
-                  : filter.value === 'pinned'
-                  ? announcements.filter(a => a.pinned).length
-                  : filter.value === 'featured'
-                  ? announcements.filter(a => a.featured).length
-                  : announcements.filter(a => a.status === filter.value || a.type === filter.value).length
-                
-                return (
-                  <Button
-                    key={filter.value}
-                    variant={selectedFilter === filter.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedFilter(filter.value)}
-                    className="flex items-center space-x-1"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{filter.label}</span>
-                    {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {count}
-                      </Badge>
-                    )}
-                  </Button>
-                )
-              })}
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          {LOCALES.map((locale) => (
+            <TabsContent key={locale} value={locale} className="mt-4 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor={`title-${locale}`}>{t('announcement.subject')}</Label>
                 <Input
-                  placeholder="Search announcements..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
+                  id={`title-${locale}`}
+                  lang={locale}
+                  value={title[locale] ?? ''}
+                  aria-invalid={locale === 'en' && !title.en?.trim()}
+                  onChange={(e) => setTitle({ ...title, [locale]: e.target.value })}
                 />
               </div>
-            </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`body-${locale}`}>{t('announcement.body')}</Label>
+                <Textarea
+                  id={`body-${locale}`}
+                  lang={locale}
+                  rows={5}
+                  value={body[locale] ?? ''}
+                  aria-invalid={locale === 'en' && !body.en?.trim()}
+                  onChange={(e) => setBody({ ...body, [locale]: e.target.value })}
+                />
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="severity">{t('announcement.severityLabel')}</Label>
+            <Select
+              value={severity}
+              onValueChange={(value) => setSeverity(value as AnnouncementSeverity)}
+            >
+              <SelectTrigger id="severity" className="coarse:min-h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SEVERITIES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`announcement.severity.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Announcements List */}
-          <ScrollArea className="h-[600px]">
-            <div className="space-y-4">
-              {filteredAnnouncements.length > 0 ? (
-                filteredAnnouncements.map((announcement) => (
-                  <AnnouncementCard key={announcement.id} announcement={announcement} />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Megaphone className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No announcements found</h3>
-                  <p className="text-gray-600">
-                    {searchQuery 
-                      ? 'No announcements match your search criteria.'
-                      : 'No announcements match the selected filter.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </TabsContent>
+          <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+            <Label htmlFor="pinned">{t('announcement.pin')}</Label>
+            <Switch id="pinned" checked={pinned} onCheckedChange={setPinned} />
+          </div>
+        </div>
 
-        <TabsContent value="templates" className="space-y-6">
-          {/* Templates List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((template) => (
-              <Card key={template.id} className="hover:shadow-md transition-all">
-                <CardHeader>
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
-                  <CardDescription>{template.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Badge>{template.type}</Badge>
-                      <Badge variant="secondary">{template.category}</Badge>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600">
-                      <strong>Variables:</strong> {template.variables.join(', ')}
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Button size="sm" className="flex-1">
-                        <Plus className="h-3 w-3 mr-1" />
-                        Use Template
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium text-foreground">
+            {t('announcement.audience')}
+          </legend>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {AUDIENCES.map((value) => (
+              <label key={value} className="flex items-center gap-2 text-sm coarse:min-h-11">
+                <Checkbox
+                  aria-label={t(`announcement.audienceOption.${value}`)}
+                  checked={audience.includes(value)}
+                  onCheckedChange={(checked) =>
+                    setAudience(
+                      checked ? [...audience, value] : audience.filter((a) => a !== value),
+                    )
+                  }
+                />
+                {t(`announcement.audienceOption.${value}`)}
+              </label>
             ))}
           </div>
-        </TabsContent>
+        </fieldset>
 
-        <TabsContent value="analytics" className="space-y-6">
-          {/* Analytics Dashboard */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Megaphone className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total Announcements</p>
-                    <p className="text-2xl font-bold">{announcements.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Eye className="h-8 w-8 text-green-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total Views</p>
-                    <p className="text-2xl font-bold">
-                      {announcements.reduce((sum, a) => sum + a.metrics.views, 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Heart className="h-8 w-8 text-red-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total Likes</p>
-                    <p className="text-2xl font-bold">
-                      {announcements.reduce((sum, a) => sum + a.metrics.likes, 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Share2 className="h-8 w-8 text-purple-600" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total Shares</p>
-                    <p className="text-2xl font-bold">
-                      {announcements.reduce((sum, a) => sum + a.metrics.shares, 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Engagement Chart Placeholder */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagement Analytics</CardTitle>
-              <CardDescription>Announcement performance over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">Analytics chart would be displayed here</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        {!valid && (
+          <p className={cn('mt-3 text-sm text-destructive')} role="alert">
+            {t('announcement.required')}
+          </p>
+        )}
 
-      {/* Create Announcement Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Announcement</DialogTitle>
-            <DialogDescription>
-              Create and publish announcements for event attendees
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={newAnnouncement.title || ''}
-                onChange={(e) => setNewAnnouncement(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter announcement title"
-              />
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium">Content</label>
-              <Textarea
-                value={newAnnouncement.content || ''}
-                onChange={(e) => setNewAnnouncement(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="Enter announcement content"
-                rows={4}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Type</label>
-                <Select 
-                  value={newAnnouncement.type} 
-                  onValueChange={(value) => setNewAnnouncement(prev => ({ ...prev, type: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="event">Event</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                    <SelectItem value="emergency">Emergency</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Priority</label>
-                <Select 
-                  value={newAnnouncement.priority} 
-                  onValueChange={(value) => setNewAnnouncement(prev => ({ ...prev, priority: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  checked={newAnnouncement.pinned || false}
-                  onCheckedChange={(checked) => setNewAnnouncement(prev => ({ ...prev, pinned: checked }))}
-                />
-                <label className="text-sm">Pin announcement</label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  checked={newAnnouncement.featured || false}
-                  onCheckedChange={(checked) => setNewAnnouncement(prev => ({ ...prev, featured: checked }))}
-                />
-                <label className="text-sm">Feature announcement</label>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createAnnouncement}>
-                Create Announcement
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Announcement Dialog */}
-      {selectedAnnouncement && (
-        <Dialog open={!!selectedAnnouncement} onOpenChange={() => setSelectedAnnouncement(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center space-x-2">
-                {getAnnouncementIcon(selectedAnnouncement.type)}
-                <span>{selectedAnnouncement.title}</span>
-              </DialogTitle>
-              <DialogDescription>
-                {selectedAnnouncement.summary || 'Announcement details'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Badge className={getStatusColor(selectedAnnouncement.status)}>
-                  {selectedAnnouncement.status}
-                </Badge>
-                <Badge className={getPriorityColor(selectedAnnouncement.priority)}>
-                  {selectedAnnouncement.priority}
-                </Badge>
-                {selectedAnnouncement.pinned && <Pin className="h-4 w-4 text-blue-600" />}
-                {selectedAnnouncement.featured && <Star className="h-4 w-4 text-yellow-600" />}
-              </div>
-              
-              <div className="prose max-w-none">
-                <p>{selectedAnnouncement.content}</p>
-              </div>
-              
-              {selectedAnnouncement.attachments.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Attachments</h4>
-                  <div className="space-y-2">
-                    {selectedAnnouncement.attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                        {attachment.type === 'image' && <Image className="h-4 w-4" />}
-                        {attachment.type === 'document' && <FileText className="h-4 w-4" />}
-                        {attachment.type === 'link' && <Link className="h-4 w-4" />}
-                        <span className="flex-1">{attachment.name}</span>
-                        <Button size="sm" variant="outline">
-                          <Download className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <strong>Author:</strong> {selectedAnnouncement.author.name}
-                </div>
-                <div>
-                  <strong>Created:</strong> {new Date(selectedAnnouncement.created_at).toLocaleString()}
-                </div>
-                {selectedAnnouncement.location && (
-                  <div>
-                    <strong>Location:</strong> {selectedAnnouncement.location}
-                  </div>
-                )}
-                <div>
-                  <strong>Visibility:</strong> {selectedAnnouncement.visibility}
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <span className="flex items-center">
-                    <Eye className="h-4 w-4 mr-1" />
-                    {selectedAnnouncement.metrics.views} views
-                  </span>
-                  <span className="flex items-center">
-                    <Heart className="h-4 w-4 mr-1" />
-                    {selectedAnnouncement.metrics.likes} likes
-                  </span>
-                  <span className="flex items-center">
-                    <Share2 className="h-4 w-4 mr-1" />
-                    {selectedAnnouncement.metrics.shares} shares
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Button size="sm" variant="outline">
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="outline">
-                    <Share2 className="h-3 w-3 mr-1" />
-                    Share
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+        <DialogFooter className="mt-6">
+          <Button variant="outline" onClick={onClose}>
+            {t('common:action.cancel')}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!valid || save.isPending}
+            onClick={() => submit('draft')}
+          >
+            {t('common:action.saveDraft')}
+          </Button>
+          <Button disabled={!valid || save.isPending} onClick={() => submit('published')}>
+            {t('announcement.publish')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
-
-export default AnnouncementSystem

@@ -1,1127 +1,932 @@
-import React, { useState } from 'react'
-import { useForm, UseFormReturn } from 'react-hook-form'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader2, Upload, X } from 'lucide-react'
+import {
+  Controller,
+  FormProvider,
+  useForm,
+  useFormContext,
+  type FieldPath,
+  type Resolver,
+  useWatch,
+} from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import * as z from 'zod'
+
+import CircleStatus from '@/pages/CircleStatus'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Textarea } from './ui/textarea'
-import { Checkbox } from './ui/checkbox'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from './ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
-import { supabase } from '../lib/supabase'
-import { toast } from 'sonner'
-import { Upload, X, DollarSign } from 'lucide-react'
+import type { CircleRow, EventPricingRow, SpaceType } from '@/lib/database.types'
+import { formatMoney } from '@/lib/money'
+import { useCircles, useEvent, useList, useSaveCircle } from '@/lib/queries'
+import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/stores/authStore'
 
-// Validation schema for the circle application form
-const circleApplicationSchema = z.object({
-  // Basic Circle Information
-  circle_name: z.string().min(1, 'Circle name is required').max(100, 'Circle name must be less than 100 characters'),
-  circle_name_furigana: z.string().optional(),
-  
-  // Representative Information (mapped to pen_name in DB)
-  pen_name: z.string().min(1, 'Representative name is required'),
-  pen_name_furigana: z.string().optional(),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  
-  // Address Information
-  address: z.string().optional(),
-  postal_code: z.string().optional(),
-  country: z.string().optional(),
-  
-  // Co-Representative Information
-  co_rep_name: z.string().optional(),
-  co_rep_email: z.string().optional(),
-  co_rep_phone: z.string().optional(),
-  
-  // Emergency Contact
-  emergency_contact_name: z.string().optional(),
-  emergency_contact_phone: z.string().optional(),
-  
-  // Social Media & Web Presence
-  website: z.string().url('Invalid URL').optional().or(z.literal('')),
-  twitter: z.string().optional(),
-  instagram: z.string().optional(),
-  pixiv: z.string().optional(),
-  
-  // Booth Configuration
-  space_preference: z.enum(['circle_space_1', 'circle_space_2', 'circle_space_4', 'circle_booth_a', 'circle_booth_b']),
-  space_size: z.string().optional(),
-  additional_power: z.boolean(),
-  additional_table: z.boolean(),
-  additional_chair: z.boolean(),
-  exhibitor_passes: z.number().min(1).max(4),
-  
-  // Content Information
-  fandom: z.string().optional(),
-  genre: z.string().optional(),
-  rating: z.enum(['all_ages', 'r15', 'r18']),
-  product_types: z.array(z.string()).optional(),
-  description: z.string().optional(),
-  works_description: z.string().optional(),
-  previous_participation: z.boolean(),
-  
-  // Commission Information
-  sells_commission: z.boolean(),
-  marketplace_link: z.string().url('Invalid URL').optional().or(z.literal('')),
-  
-  // Special Requests
-  special_requests: z.string().optional(),
-  
-  // Currency Selection
-  currency: z.enum(['IDR', 'USD']),
-})
+/**
+ * The circle application form — the app's money-in front door.
+ *
+ * What was wrong before: the submit handler spread the whole zod object into
+ * `circles`, and ~15 of those keys are not columns (`space_preference`,
+ * `space_size`, `twitter`, `pixiv`, `website`, `currency`, …). PostgREST rejects
+ * the whole INSERT with PGRST204, so no application has ever been filed. It also
+ * never set `user_id`, which the RLS INSERT check `auth.uid() = user_id` requires,
+ * and it minted a `circle_code` client-side — the organizer allocates A-01, and
+ * 005 made the column nullable precisely so a draft has none.
+ *
+ * The payload is now mapped field-for-field. Never spread the form object into a
+ * table again: the schema is the contract and `database.types.ts` enforces it.
+ */
 
-type CircleApplicationFormData = z.infer<typeof circleApplicationSchema>
+/** One save every 900 ms of quiet, not one per keystroke. */
+const DRAFT_DEBOUNCE_MS = 900
 
-// Create a properly typed FormField component
-const TypedFormField = FormField<CircleApplicationFormData>
+/**
+ * Kana, kanji and the CJK extension block. A circle name written in any of them
+ * needs a reading, because kana sort order (五十音) cannot be derived from kanji
+ * — see `kana_sort_key()` in 005. 'Studio Kelinci' needs nothing.
+ *
+ * ponytail: script detection by codepoint range, which cannot tell a Japanese
+ * name from a Chinese one and does not care. Upgrade path if false positives
+ * ever appear: `Intl.Segmenter` with a script property, or a proper detection
+ * helper — both are heavier than the problem.
+ */
+const JAPANESE_SCRIPT = /[぀-ヿ㐀-䶿一-鿿豈-﫿]/
 
-interface CircleApplicationFormProps {
-  eventId: string
-  onSubmit?: (data: CircleApplicationFormData) => void
+const SPACE_TYPES: SpaceType[] = [
+  'circle_space_1',
+  'circle_space_2',
+  'circle_space_4',
+  'circle_booth_a',
+  'circle_booth_b',
+]
+
+const SPACE_LABEL: Record<SpaceType, string> = {
+  circle_space_1: '1 space (1×2 m)',
+  circle_space_2: '2 spaces (2×2 m)',
+  circle_space_4: '4 spaces (4×2 m)',
+  circle_booth_a: 'Booth A (corner)',
+  circle_booth_b: 'Booth B (double corner)',
 }
-
-const SPACE_TYPES = [
-  { value: 'circle_space_1', label: 'Circle Space (1 space)', price_idr: 150000, price_usd: 10 },
-  { value: 'circle_space_2', label: 'Circle Space (2 spaces)', price_idr: 280000, price_usd: 18 },
-  { value: 'circle_space_4', label: 'Circle Space (4 spaces)', price_idr: 520000, price_usd: 35 },
-  { value: 'circle_booth_a', label: 'Circle Booth A', price_idr: 800000, price_usd: 55 },
-  { value: 'circle_booth_b', label: 'Circle Booth B', price_idr: 1200000, price_usd: 80 },
-]
-
-const PRODUCT_TYPES = [
-  'Doujinshi/Comics',
-  'Illustrations/Art Books',
-  'Novels/Light Novels',
-  'Games/Software',
-  'Music/Audio',
-  'Merchandise/Goods',
-  'Cosplay Items',
-  'Accessories',
-  'Stickers/Prints',
-  'Other'
-]
 
 const GENRES = [
   'Original',
-  'Anime/Manga',
-  'Games',
-  'Novels',
-  'Movies/TV',
+  'Fanwork',
+  'Illustration',
+  'Novel',
+  'Manga',
   'Music',
-  'Historical',
-  'Fantasy',
-  'Sci-Fi',
-  'Romance',
-  'Comedy',
-  'Drama',
-  'Horror',
-  'Other'
+  'Game',
+  'Cosplay',
+  'Critique',
+  'Other',
 ]
 
-export default function CircleApplicationForm({ eventId, onSubmit }: CircleApplicationFormProps) {
-  const [uploadedImages, setUploadedImages] = useState<File[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  const form: UseFormReturn<CircleApplicationFormData> = useForm<CircleApplicationFormData>({
-    resolver: zodResolver(circleApplicationSchema),
-    defaultValues: {
-      circle_name: '',
-      circle_name_furigana: '',
-      pen_name: '',
-      pen_name_furigana: '',
-      email: '',
-      phone: '',
-      address: '',
-      postal_code: '',
-      country: '',
-      co_rep_name: '',
-      co_rep_email: '',
-      co_rep_phone: '',
-      emergency_contact_name: '',
-      emergency_contact_phone: '',
-      website: '',
-      twitter: '',
-      instagram: '',
-      pixiv: '',
-      space_preference: 'circle_space_1' as const,
-      space_size: '',
-      additional_power: false,
-      additional_table: false,
-      additional_chair: false,
-      exhibitor_passes: 1,
-      fandom: '',
-      genre: '',
-      rating: 'all_ages' as const,
-      product_types: [],
-      description: '',
-      works_description: '',
-      previous_participation: false,
-      sells_commission: false,
-      marketplace_link: '',
-      special_requests: '',
-      currency: 'IDR' as const,
-    },
+const PRODUCT_TYPES = [
+  'doujinshi',
+  'illustration',
+  'novel',
+  'music',
+  'game',
+  'goods',
+  'accessory',
+  'print',
+]
+
+const optionalText = z.string().trim().optional()
+const optionalUrl = z.string().trim().url('Enter a full URL, including https://').or(z.literal('')).optional()
+
+const schema = z
+  .object({
+    circle_name: z.string().trim().min(1).max(100),
+    circle_name_furigana: optionalText,
+    pen_name: z.string().trim().min(1),
+    pen_name_furigana: optionalText,
+    email: z.string().trim().email(),
+    phone: optionalText,
+    address: optionalText,
+    postal_code: optionalText,
+    country: optionalText,
+    co_rep_name: optionalText,
+    co_rep_email: z.string().trim().email().or(z.literal('')).optional(),
+    co_rep_phone: optionalText,
+    emergency_contact_name: optionalText,
+    emergency_contact_phone: optionalText,
+    social_media_website: optionalUrl,
+    social_media_twitter: optionalText,
+    social_media_pixiv: optionalText,
+    social_media_instagram: optionalText,
+    marketplace_link: optionalUrl,
+    space_type: z.enum(SPACE_TYPES as [SpaceType, ...SpaceType[]]),
+    additional_table: z.boolean(),
+    additional_chair: z.boolean(),
+    additional_power: z.boolean(),
+    exhibitor_passes: z.coerce.number().int().min(1).max(4),
+    fandom: optionalText,
+    genre: z.string().trim().min(1),
+    rating: z.enum(['all_ages', 'r15', 'r18']),
+    product_types: z.array(z.string()).min(1),
+    description: z.string().trim().min(1).max(2000),
+    works_description: optionalText,
+    previous_participation: z.boolean(),
+    sells_commission: z.boolean(),
+    special_requests: optionalText,
   })
-  
-  const watchedSpaceType = form.watch('space_preference')
-  const watchedCurrency = form.watch('currency')
-  const watchedProductTypes = form.watch('product_types')
-  
-  const selectedSpaceType = SPACE_TYPES.find(type => type.value === watchedSpaceType)
-  const totalPrice = selectedSpaceType ? 
-    (watchedCurrency === 'IDR' ? selectedSpaceType.price_idr : selectedSpaceType.price_usd) : 0
-  
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    const validFiles = files.filter(file => {
-      const isValidType = file.type.startsWith('image/')
-      const isValidSize = file.size <= 5 * 1024 * 1024 // 5MB limit
-      return isValidType && isValidSize
-    })
-    
-    if (validFiles.length !== files.length) {
-      toast.error('Some files were rejected. Please ensure all files are images under 5MB.')
+  .superRefine((values, ctx) => {
+    // Conditionally required, never globally: a DB CHECK would be too blunt and
+    // would reject every Indonesian circle.
+    for (const [name, reading] of [
+      ['circle_name', 'circle_name_furigana'],
+      ['pen_name', 'pen_name_furigana'],
+    ] as const) {
+      if (JAPANESE_SCRIPT.test(values[name]) && !values[reading]?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [reading],
+          message: 'Add the kana reading — it is what sorts and searches the catalog.',
+        })
+      }
     }
-    
-    setUploadedImages(prev => [...prev, ...validFiles].slice(0, 5)) // Max 5 images
-  }
-  
-  const removeImage = (index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index))
-  }
-  
-  const handleProductTypeChange = (productType: string, checked: boolean) => {
-    const currentTypes = watchedProductTypes || []
-    if (checked) {
-      form.setValue('product_types', [...currentTypes, productType])
-    } else {
-      form.setValue('product_types', currentTypes.filter(type => type !== productType))
-    }
-  }
-  
-  const onFormSubmit = async (data: CircleApplicationFormData) => {
-    setIsSubmitting(true)
+  })
+
+export type CircleApplicationValues = z.infer<typeof schema>
+
+const EMPTY: CircleApplicationValues = {
+  circle_name: '',
+  circle_name_furigana: '',
+  pen_name: '',
+  pen_name_furigana: '',
+  email: '',
+  phone: '',
+  address: '',
+  postal_code: '',
+  country: '',
+  co_rep_name: '',
+  co_rep_email: '',
+  co_rep_phone: '',
+  emergency_contact_name: '',
+  emergency_contact_phone: '',
+  social_media_website: '',
+  social_media_twitter: '',
+  social_media_pixiv: '',
+  social_media_instagram: '',
+  marketplace_link: '',
+  space_type: 'circle_space_1',
+  additional_table: false,
+  additional_chair: false,
+  additional_power: false,
+  exhibitor_passes: 1,
+  fandom: '',
+  genre: '',
+  rating: 'all_ages',
+  product_types: [],
+  description: '',
+  works_description: '',
+  previous_participation: false,
+  sells_commission: false,
+  special_requests: '',
+}
+
+interface CircleApplicationFormProps {
+  eventId: string
+  onSubmit?: (values: CircleApplicationValues) => void
+}
+
+export default function CircleApplicationForm({ eventId, onSubmit }: CircleApplicationFormProps) {
+  const { t, i18n } = useTranslation(['circle', 'common'])
+  const user = useAuthStore((s) => s.user)
+  const userId = user?.id ?? null
+
+  const { data: circles, isLoading } = useCircles(eventId)
+  const { data: event } = useEvent(eventId)
+  const pricing = useEventPricing(eventId)
+  const save = useSaveCircle(eventId)
+
+  // RLS returns a circle owner only their own rows, so this filter is belt and
+  // braces rather than access control. Newest first: 005's UNIQUE(event_id,
+  // user_id) means there is at most one, but a fixture or a legacy row can lie.
+  const mine = useMemo(() => {
+    if (!userId) return null
+    return (
+      [...circles]
+        .filter((c) => c.user_id === userId)
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0] ?? null
+    )
+  }, [circles, userId])
+
+  const draft = mine?.application_status === 'draft' ? mine : null
+
+  const [cut, setCut] = useState<File | null>(null)
+  const [samples, setSamples] = useState<File[]>([])
+  const [busy, setBusy] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+
+  const form = useForm<CircleApplicationValues>({
+    // The cast is the zod-4 / @hookform/resolvers-5 seam: the resolver package
+    // resolves its own copy of react-hook-form's types, so structurally
+    // identical `Resolver`s are nominally unrelated to tsc.
+    resolver: zodResolver(schema) as unknown as Resolver<CircleApplicationValues>,
+    defaultValues: EMPTY,
+  })
+
+  const priced = useWatch({
+    control: form.control,
+    name: [
+      'space_type',
+      'additional_table',
+      'additional_chair',
+      'additional_power',
+      'exhibitor_passes',
+    ],
+  })
+
+  // Resume the draft once it arrives. `reset` with `keepDirtyValues` so a slow
+  // query cannot wipe what the applicant already typed.
+  const loadedRef = useRef(false)
+  useEffect(() => {
+    if (!draft || loadedRef.current) return
+    loadedRef.current = true
+    form.reset({ ...EMPTY, ...pickValues(draft) }, { keepDirtyValues: true })
+  }, [draft, form])
+
+  useEffect(() => {
+    if (userId && user?.email && !form.getValues('email')) form.setValue('email', user.email)
+  }, [userId, user?.email, form])
+
+  const payload = useCallback(
+    (status: 'draft' | 'submitted', extra: Record<string, unknown> = {}) => {
+      const v = form.getValues()
+      return {
+        ...(mine ? { id: mine.id } : {}),
+        user_id: userId,
+        circle_name: v.circle_name,
+        circle_name_furigana: v.circle_name_furigana || null,
+        pen_name: v.pen_name,
+        pen_name_furigana: v.pen_name_furigana || null,
+        email: v.email,
+        phone: v.phone || null,
+        address: v.address || null,
+        postal_code: v.postal_code || null,
+        country: v.country || null,
+        co_rep_name: v.co_rep_name || null,
+        co_rep_email: v.co_rep_email || null,
+        co_rep_phone: v.co_rep_phone || null,
+        emergency_contact_name: v.emergency_contact_name || null,
+        emergency_contact_phone: v.emergency_contact_phone || null,
+        social_media_website: v.social_media_website || null,
+        social_media_twitter: v.social_media_twitter || null,
+        social_media_pixiv: v.social_media_pixiv || null,
+        social_media_instagram: v.social_media_instagram || null,
+        marketplace_link: v.marketplace_link || null,
+        space_type: v.space_type,
+        additional_table: v.additional_table,
+        additional_chair: v.additional_chair,
+        additional_power: v.additional_power,
+        exhibitor_passes: v.exhibitor_passes,
+        fandom: v.fandom || null,
+        genre: v.genre || null,
+        rating: v.rating,
+        product_types: v.product_types,
+        description: v.description || null,
+        works_description: v.works_description || null,
+        previous_participation: v.previous_participation,
+        sells_commission: v.sells_commission,
+        special_requests: v.special_requests || null,
+        application_status: status,
+        // Recomputed by `circles_set_total_amount` from `event_pricing` on both
+        // INSERT and UPDATE; whatever goes up here is discarded. It is sent so
+        // the row carries the quote the applicant agreed to until the trigger
+        // prices it.
+        total_amount: quote(pricing.data, form.getValues()),
+        ...extra,
+      }
+    },
+    [form, mine, userId, pricing.data],
+  )
+
+  // Save-as-draft: one debounced write to the same `circles` row, resumed by
+  // (event_id, user_id). No drafts table — 005 added 'draft' to the CHECK and
+  // the unique index that makes this a single row per applicant per event.
+  const saveDraft = useCallback(async () => {
+    if (!userId || busy) return
+    if (!(form.getValues('circle_name') ?? '').trim()) return
+    if (mine && mine.application_status !== 'draft') return
     try {
-      // Upload images to Supabase Storage
-      const imageUrls: string[] = []
-      
-      for (const image of uploadedImages) {
-        const fileExt = image.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `sample-works/${fileName}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from('circle-files')
-          .upload(filePath, image)
-        
-        if (uploadError) {
-          throw uploadError
-        }
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('circle-files')
-          .getPublicUrl(filePath)
-        
-        imageUrls.push(publicUrl)
-      }
-      
-      // Generate unique circle code
-      const circleCode = `C${Date.now().toString().slice(-6)}${Math.random().toString(36).substring(2, 4).toUpperCase()}`
-      
-      // Prepare circle data
-      const circleData = {
-        ...data,
-        event_id: eventId,
-        circle_code: circleCode,
-        sample_works_images: imageUrls,
-        total_amount: totalPrice,
-        application_status: 'pending' as const,
-        payment_status: 'pending' as const,
-      }
-      
-      // Insert circle application
-      const { error: insertError } = await supabase
-        .from('circles')
-        .insert([circleData])
-      
-      if (insertError) {
-        throw insertError
-      }
-      
-      toast.success('Circle application submitted successfully!')
-      onSubmit?.(data)
-      form.reset()
-      setUploadedImages([])
-      
-    } catch (error) {
-      console.error('Error submitting application:', error)
-      toast.error('Failed to submit application. Please try again.')
+      const row = await save.mutateAsync(payload('draft'))
+      if (!mine) loadedRef.current = true
+      setDraftSavedAt(row.updated_at ?? new Date().toISOString())
+    } catch {
+      // A failed autosave is not worth a toast on every keystroke; the applicant
+      // finds out at submit, which is a blocking write with its own error.
+    }
+  }, [busy, form, mine, payload, save, userId])
+
+  const saveDraftRef = useRef(saveDraft)
+  saveDraftRef.current = saveDraft
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const sub = form.watch(() => {
+      clearTimeout(timer)
+      timer = setTimeout(() => void saveDraftRef.current(), DRAFT_DEBOUNCE_MS)
+    })
+    return () => {
+      clearTimeout(timer)
+      sub.unsubscribe()
+    }
+  }, [form])
+
+  async function onValid(values: CircleApplicationValues) {
+    if (!userId) {
+      toast.error(t('common:error.unauthorized'))
+      return
+    }
+    if (!cut && !mine?.circle_cut_file_url) {
+      toast.error(t('field.circleCut'), { description: t('field.circleCutHelp') })
+      return
+    }
+    setBusy(true)
+    try {
+      const cutUrl = cut ? await upload(userId, cut) : mine!.circle_cut_file_url
+      const sampleUrls = samples.length
+        ? await Promise.all(samples.map((f) => upload(userId, f)))
+        : (mine?.sample_works_images ?? null)
+
+      await save.mutateAsync(
+        payload('submitted', {
+          circle_cut_file_url: cutUrl,
+          sample_works_images: sampleUrls,
+        }),
+      )
+      toast.success(t('application.submitted'))
+      onSubmit?.(values)
+    } catch (err) {
+      toast.error(t('common:error.generic'), {
+        description: err instanceof Error ? err.message : undefined,
+      })
     } finally {
-      setIsSubmitting(false)
+      setBusy(false)
     }
   }
-  
-  return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Circle Application Form</h1>
-        <p className="text-muted-foreground">
-          Please fill out all required fields to apply for a booth at the event.
-        </p>
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-3xl space-y-3 px-4 py-10" aria-busy="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
+        ))}
       </div>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-8">
-          {/* Basic Circle Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Circle Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="circle_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Circle Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter circle name" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
+    )
+  }
+
+  // Already applied: the status page is the right screen, not a second form.
+  if (mine && mine.application_status !== 'draft') return <CircleStatus eventId={eventId} />
+
+  // Scoped to the five fields the price depends on. A bare `form.watch()` here
+  // re-renders the whole form on every keystroke in every field, which is
+  // visible lag on a phone.
+  const total = quote(pricing.data, {
+    space_type: priced[0],
+    additional_table: priced[1],
+    additional_chair: priced[2],
+    additional_power: priced[3],
+    exhibitor_passes: Number(priced[4]),
+  })
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {t('application.title')}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {event?.name ? `${event.name} · ` : ''}
+          {t('application.subtitle')}
+        </p>
+      </header>
+
+      <FormProvider {...form}>
+        <form className="mt-8 space-y-10" onSubmit={form.handleSubmit(onValid)} noValidate>
+          <Section title={t('section.circle')}>
+            <Grid>
+              <Text name="circle_name" label={t('field.circleName')} required />
+              <Text
                 name="circle_name_furigana"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Circle Name (Furigana)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="サークル名（ふりがな）" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label={t('field.circleNameFurigana')}
+                hint={t('field.circleNameFuriganaHelp')}
+                placeholder="ねこまちどう"
               />
-            </div>
-            
-            <TypedFormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Circle Description *</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Describe your circle, what you create, and what visitors can expect..."
-                      className="min-h-[120px]"
-                      {...field}
-                      value={field.value as string}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    This will be displayed in the event catalog
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          {/* Representative Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Representative Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="pen_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Representative Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter representative name" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="pen_name_furigana"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Representative Name (Furigana)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="代表者名（ふりがな）" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address *</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Enter email address" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter phone number" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          {/* Co-Representative Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Co-Representative (Optional)</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="co_rep_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Co-Representative Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter co-representative name" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="co_rep_email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Co-Representative Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Enter co-representative email" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="co_rep_phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Co-Representative Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter co-representative phone" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          {/* Address Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Address Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="postal_code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Postal Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter postal code" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter country" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter full address" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          {/* Emergency Contact */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Emergency Contact</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="emergency_contact_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Emergency Contact Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter emergency contact name" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="emergency_contact_phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Emergency Contact Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter emergency contact phone" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
+              <Text name="pen_name" label={t('field.penName')} required />
+              <Text name="pen_name_furigana" label={t('field.penNameFurigana')} />
+            </Grid>
+            <Area name="description" label={t('field.description')} required />
+            <Area name="works_description" label={t('field.worksDescription')} />
+          </Section>
 
-            </div>
-          </div>
-          
-          {/* Social Media & Web Presence */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Social Media &amp; Web Presence</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="twitter"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Twitter Handle</FormLabel>
-                    <FormControl>
-                      <Input placeholder="@username" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="instagram"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instagram Handle</FormLabel>
-                    <FormControl>
-                      <Input placeholder="@username" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="pixiv"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pixiv ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="pixiv.net/users/123456" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          {/* Booth Configuration */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Booth Configuration</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <TypedFormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value as string}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="IDR">
-                            <div className="flex items-center gap-2">
-                              <span>IDR (Indonesian Rupiah)</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="USD">
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4" />
-                              <span>USD (US Dollar)</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <TypedFormField
-                control={form.control}
-                name="space_preference"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Space Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value as string}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select space type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {SPACE_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            <div className="flex justify-between items-center w-full">
-                              <span>{type.label}</span>
-                              <span className="ml-4 font-semibold">
-                                {watchedCurrency === 'IDR' 
-                                  ? `IDR ${type.price_idr.toLocaleString()}` 
-                                  : `$${type.price_usd}`
-                                }
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              </div>
-              
-              <div className="space-y-4">
-                {selectedSpaceType && (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h3 className="font-semibold mb-2">Pricing Summary</h3>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span>{selectedSpaceType.label}</span>
-                        <span className="font-semibold">
-                          {watchedCurrency === 'IDR' 
-                            ? `IDR ${totalPrice.toLocaleString()}` 
-                            : `$${totalPrice}`
-                          }
-                        </span>
-                      </div>
-                      <div className="border-t pt-1 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span>
-                          {watchedCurrency === 'IDR' 
-                            ? `IDR ${totalPrice.toLocaleString()}` 
-                            : `$${totalPrice}`
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <TypedFormField
-              control={form.control}
-              name="space_size"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Space Size Preference</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Any specific location preferences or requirements?"
-                      className="min-h-[80px]"
-                      {...field}
-                      value={field.value as string}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Please describe any specific location preferences (e.g., near entrance, corner booth, etc.)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="additional_power"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Additional Power</FormLabel>
-                      <FormDescription>
-                        Check if you need additional power
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="additional_table"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Additional Table</FormLabel>
-                      <FormDescription>
-                        Check if you need an additional table
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
-                name="additional_chair"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Additional Chair</FormLabel>
-                      <FormDescription>
-                        Check if you need an additional chair
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          {/* Content Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Content Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
-                name="fandom"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fandom *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter main fandom/series" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <TypedFormField
-                control={form.control}
+          <Section title={t('section.contact')}>
+            <Grid>
+              <Text name="email" label={t('field.email')} type="email" required />
+              <Text name="phone" label={t('field.phone')} type="tel" />
+              <Text name="address" label="Address" />
+              <Text name="postal_code" label="Postal code" />
+              <Text name="country" label="Country" placeholder="ID" />
+              <Text name="emergency_contact_name" label="Emergency contact" />
+              <Text name="emergency_contact_phone" label="Emergency phone" type="tel" />
+              <Text name="co_rep_name" label="Co-representative" />
+              <Text name="co_rep_email" label="Co-representative email" type="email" />
+              <Text name="co_rep_phone" label="Co-representative phone" type="tel" />
+            </Grid>
+          </Section>
+
+          <Section title={t('section.works')}>
+            <Grid>
+              <Pick
                 name="genre"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Genre *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value as string}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select genre" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {GENRES.map((genre) => (
-                          <SelectItem key={genre} value={genre}>
-                            {genre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label={t('field.genre')}
+                required
+                options={GENRES.map((g) => ({ value: g, label: g }))}
               />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TypedFormField
-                control={form.control}
+              <Text name="fandom" label={t('field.fandom')} />
+              <Pick
                 name="rating"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Content Rating *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value as string}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select content rating" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="all_ages">All Ages</SelectItem>
-                        <SelectItem value="r15">R15+ (Ages 15 and up)</SelectItem>
-                        <SelectItem value="r18">R18+ (Adults only)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label={t('field.rating')}
+                required
+                options={[
+                  { value: 'all_ages', label: t('rating.allAges') },
+                  { value: 'r15', label: t('rating.r15') },
+                  { value: 'r18', label: t('rating.r18') },
+                ]}
               />
-              
-              <TypedFormField
-                control={form.control}
+            </Grid>
+            <ProductTypes />
+            <Grid>
+              <Text name="social_media_website" label={t('field.website')} placeholder="https://" />
+              <Text name="social_media_twitter" label="X / Twitter" placeholder="@handle" />
+              <Text name="social_media_pixiv" label="pixiv" placeholder="pixiv.net/users/…" />
+              <Text name="social_media_instagram" label="Instagram" placeholder="@handle" />
+              <Text name="marketplace_link" label="Online shop" placeholder="https://" />
+            </Grid>
+            <Check name="sells_commission" label="Takes commissions" />
+            <Check name="previous_participation" label="Exhibited at this event before" />
+          </Section>
+
+          <Section title={t('section.booth')}>
+            <Grid>
+              <Pick
+                name="space_type"
+                label={t('field.spacePreference')}
+                required
+                options={SPACE_TYPES.map((s) => ({ value: s, label: SPACE_LABEL[s] }))}
+              />
+              <Text
                 name="exhibitor_passes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Exhibitor Passes *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="Number of exhibitor passes needed"
-                        min="1"
-                        max="4"
-                        {...field}
-                        value={field.value as string}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label={t('field.exhibitorPasses')}
+                type="number"
+                min={1}
+                max={4}
               />
+            </Grid>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Check name="additional_table" label={t('field.additionalTable')} />
+              <Check name="additional_chair" label={t('field.additionalChair')} />
+              <Check name="additional_power" label={t('field.additionalPower')} />
             </div>
-            
-            <div>
-              <Label className="text-sm font-medium">Product Types *</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                {PRODUCT_TYPES.map((productType) => (
-                  <div key={productType} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={productType}
-                      checked={watchedProductTypes?.includes(productType) || false}
-                      onCheckedChange={(checked) => handleProductTypeChange(productType, checked as boolean)}
-                    />
-                    <Label htmlFor={productType} className="text-sm font-normal">
-                      {productType}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              {form.formState.errors.product_types && (
-                <p className="text-sm font-medium text-destructive mt-1">
-                  {form.formState.errors.product_types.message}
-                </p>
-              )}
-            </div>
-            
-            <TypedFormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Circle Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Describe your circle and what you do"
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value as string}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Tell us about your circle, your artistic style, and what makes you unique
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <TypedFormField
-              control={form.control}
-              name="works_description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Works Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Describe the works you'll be selling at this event"
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value as string}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Describe the specific works, merchandise, or content you plan to sell
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          {/* Previous Participation */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Previous Participation</h2>
-            
-            <TypedFormField
-              control={form.control}
-              name="previous_participation"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value as boolean}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Previous Participation</FormLabel>
-                    <FormDescription>
-                      Check if you have participated in similar events before
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            
+            <Area name="special_requests" label={t('field.specialRequests')} />
 
-          </div>
-          
-          {/* Commission Information */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Commission Information</h2>
-            
-            <TypedFormField
-              control={form.control}
-              name="sells_commission"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value as boolean}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Sells Commission</FormLabel>
-                    <FormDescription>
-                      Check if you offer commission services
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            
-            {form.watch('sells_commission') && (
-              <TypedFormField
-                control={form.control}
-                name="marketplace_link"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Marketplace Link</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/shop" {...field} value={field.value as string} />
-                    </FormControl>
-                    <FormDescription>Link to your online marketplace</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-          
-          {/* Sample Works */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Sample Works</h2>
-            
-
-            
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Sample Works Images</Label>
-              <div className="space-y-4">
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:bg-muted/50">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-                      <p className="mb-2 text-sm text-muted-foreground">
-                        <span className="font-semibold">Click to upload</span> sample work images
-                      </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 5MB (Max 5 images)</p>
-                    </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </label>
-                </div>
-                
-                {uploadedImages.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {uploadedImages.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={URL.createObjectURL(image)}
-                          alt={`Sample work ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <div className="rounded-lg border border-border bg-muted/40 p-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm text-muted-foreground">{t('section.payment')}</span>
+                <span className="text-lg font-semibold tabular-nums text-foreground">
+                  {formatMoney(total, event?.currency ?? 'IDR', i18n.language)}
+                </span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Quoted from the event price sheet. The organizer's server prices the
+                application again on submit, and that figure is what you pay.
+              </p>
             </div>
-          </div>
-          
-          {/* Special Requests */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold border-b pb-2">Additional Information</h2>
-            
-            <TypedFormField
-              control={form.control}
-              name="special_requests"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Special Requests</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Any special requests or additional information you'd like to share..."
-                      className="min-h-[100px]"
-                      {...field}
-                      value={field.value as string}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Please include any special accommodations or requests
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </Section>
+
+          <Section title={t('field.circleCut')}>
+            <FilePick
+              label={t('field.circleCut')}
+              hint={t('field.circleCutHelp')}
+              existing={mine?.circle_cut_file_url ?? null}
+              files={cut ? [cut] : []}
+              onPick={(picked) => setCut(picked[0] ?? null)}
+              onRemove={() => setCut(null)}
             />
-          </div>
-          
-          {/* Submit Button */}
-          <div className="flex justify-center pt-6">
-            <Button 
-              type="submit" 
-              size="lg" 
-              disabled={isSubmitting}
-              className="w-full md:w-auto min-w-[200px]"
+            <FilePick
+              label="Sample works"
+              hint="Up to 5 images. Optional, and separate from the circle cut."
+              multiple
+              existing={null}
+              files={samples}
+              onPick={(picked) => setSamples((prev) => [...prev, ...picked].slice(0, 5))}
+              onRemove={(i) => setSamples((prev) => prev.filter((_, x) => x !== i))}
+            />
+          </Section>
+
+          <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-end">
+            <p className="mr-auto text-xs text-muted-foreground" role="status">
+              {draftSavedAt
+                ? `${t('application.draftSaved')} · ${new Date(draftSavedAt).toLocaleTimeString(i18n.language)}`
+                : ''}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void saveDraft()}
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Application'}
+              {t('common:action.saveDraft')}
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('application.submit')}
             </Button>
           </div>
         </form>
-      </Form>
+      </FormProvider>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pricing
+// ---------------------------------------------------------------------------
+
+/**
+ * ponytail: `event_pricing` has no hook in `src/lib/queries/` and that directory
+ * belongs to P9, so the query lives here for one wave. Move it to
+ * `queries/events.ts` as `useEventPricing` with a `queryKeys.events.pricing` key
+ * the next time the seam is open.
+ */
+function useEventPricing(eventId: string) {
+  return useList<EventPricingRow>(
+    ['event_pricing', eventId],
+    () => supabase.from('event_pricing').select('*').eq('event_id', eventId),
+    { enabled: Boolean(eventId), staleTime: 5 * 60_000 },
+  )
+}
+
+/** The client half of `circles_set_total_amount` (004). Advisory; the trigger wins. */
+function quote(sheet: EventPricingRow[], v: Partial<CircleApplicationValues>): number {
+  const row = sheet.find((p) => p.space_type === v.space_type)
+  if (!row) return 0
+  return (
+    Number(row.price) +
+    (v.additional_table ? Number(row.addon_table_price) : 0) +
+    (v.additional_chair ? Number(row.addon_chair_price) : 0) +
+    (v.additional_power ? Number(row.addon_power_price) : 0) +
+    Math.max((v.exhibitor_passes ?? 1) - 1, 0) * Number(row.extra_pass_price)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Storage
+// ---------------------------------------------------------------------------
+
+/**
+ * `${uid}/${uuid}.${ext}` in `circle-public`. The folder name IS the access
+ * control: 006's policy checks `(storage.foldername(name))[1] = auth.uid()`, so
+ * the old `sample-works/<random>` path 403s on every upload.
+ *
+ * The 5 MB check below is for the message, not for the rule — the bucket row
+ * carries `file_size_limit` and `allowed_mime_types`, which is the control a
+ * curl cannot walk around.
+ */
+async function upload(userId: string, file: File): Promise<string> {
+  if (file.size > 5 * 1024 * 1024) throw new Error(`${file.name} is larger than 5 MB.`)
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('circle-public').upload(path, file)
+  if (error) throw new Error(error.message)
+  return supabase.storage.from('circle-public').getPublicUrl(path).data.publicUrl
+}
+
+function pickValues(row: CircleRow): Partial<CircleApplicationValues> {
+  const out: Record<string, unknown> = {}
+  const source = row as unknown as Record<string, unknown>
+  for (const key of Object.keys(EMPTY)) {
+    const value = source[key]
+    if (value !== null && value !== undefined) out[key] = value
+  }
+  return out as Partial<CircleApplicationValues>
+}
+
+// ---------------------------------------------------------------------------
+// Field helpers — react-hook-form via context, so a call site is one line
+// ---------------------------------------------------------------------------
+
+function useCtx() {
+  return useFormContext<CircleApplicationValues>()
+}
+
+/**
+ * ponytail: every text field goes through `Controller` rather than `register()`.
+ * `src/components/ui/input.tsx` is a plain function component with no
+ * `forwardRef`, so under React 18 the ref `register()` returns is dropped, the
+ * field is never registered and `getValues()` comes back undefined — a form that
+ * looks fine and submits nothing. Controller needs no ref. Upgrade path: add
+ * `React.forwardRef` to that primitive (P7 owns it) or move to React 19, then
+ * `register()` becomes the shorter option again.
+ */
+
+/** `FieldErrors` is a mapped type; indexing it with a union key needs the cast. */
+function errorAt(errors: unknown, name: string): string | undefined {
+  const message = (errors as Record<string, { message?: unknown } | undefined>)[name]?.message
+  return message == null ? undefined : String(message)
+}
+
+type Name = FieldPath<CircleApplicationValues>
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <h2 className="border-b border-border pb-2 text-base font-semibold text-foreground">
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+}
+
+function ErrorText({ name }: { name: Name }) {
+  const { formState } = useCtx()
+  const message = errorAt(formState.errors, name)
+  if (!message) return null
+  return (
+    <p id={`${name}-error`} className="text-sm text-destructive">
+      {message}
+    </p>
+  )
+}
+
+function Text({
+  name,
+  label,
+  hint,
+  required,
+  type = 'text',
+  placeholder,
+  min,
+  max,
+}: {
+  name: Name
+  label: string
+  hint?: string
+  required?: boolean
+  type?: string
+  placeholder?: string
+  min?: number
+  max?: number
+}) {
+  const form = useCtx()
+  const invalid = Boolean(errorAt(form.formState.errors, name))
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={name}>
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Controller
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <Input
+            id={name}
+            type={type}
+            min={min}
+            max={max}
+            placeholder={placeholder}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? `${name}-error` : hint ? `${name}-hint` : undefined}
+            className="coarse:min-h-11"
+            name={field.name}
+            value={String(field.value ?? '')}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
+        )}
+      />
+      {hint && (
+        <p id={`${name}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      <ErrorText name={name} />
+    </div>
+  )
+}
+
+function Area({ name, label, required }: { name: Name; label: string; required?: boolean }) {
+  const form = useCtx()
+  const invalid = Boolean(errorAt(form.formState.errors, name))
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={name}>
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Controller
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <Textarea
+            id={name}
+            rows={4}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? `${name}-error` : undefined}
+            name={field.name}
+            value={String(field.value ?? '')}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
+        )}
+      />
+      <ErrorText name={name} />
+    </div>
+  )
+}
+
+function Pick({
+  name,
+  label,
+  options,
+  required,
+}: {
+  name: Name
+  label: string
+  required?: boolean
+  options: { value: string; label: string }[]
+}) {
+  const form = useCtx()
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={name}>
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Controller
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <Select value={String(field.value ?? '')} onValueChange={field.onChange}>
+            <SelectTrigger id={name} className="coarse:min-h-11">
+              <SelectValue placeholder={label} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      <ErrorText name={name} />
+    </div>
+  )
+}
+
+function Check({ name, label }: { name: Name; label: string }) {
+  const form = useCtx()
+  return (
+    <Controller
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
+          <Checkbox
+            aria-label={typeof label === 'string' ? label : undefined}
+            checked={Boolean(field.value)}
+            onCheckedChange={field.onChange}
+            className="coarse:size-5"
+          />
+          {label}
+        </label>
+      )}
+    />
+  )
+}
+
+function ProductTypes() {
+  const { t } = useTranslation('circle')
+  const form = useCtx()
+  const selected = form.watch('product_types') ?? []
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">
+        {t('field.productTypes')}
+        <span className="text-destructive"> *</span>
+      </legend>
+      <div className="flex flex-wrap gap-2">
+        {PRODUCT_TYPES.map((type) => {
+          const on = selected.includes(type)
+          return (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={on}
+              onClick={() =>
+                form.setValue(
+                  'product_types',
+                  on ? selected.filter((x) => x !== type) : [...selected, type],
+                  { shouldDirty: true, shouldValidate: true },
+                )
+              }
+              className={
+                on
+                  ? 'min-h-11 rounded-full border border-primary bg-primary/10 px-4 text-sm text-primary'
+                  : 'min-h-11 rounded-full border border-border px-4 text-sm text-muted-foreground hover:bg-accent'
+              }
+            >
+              {type}
+            </button>
+          )
+        })}
+      </div>
+      <ErrorText name="product_types" />
+    </fieldset>
+  )
+}
+
+function FilePick({
+  label,
+  hint,
+  files,
+  existing,
+  multiple,
+  onPick,
+  onRemove,
+}: {
+  label: string
+  hint: string
+  files: File[]
+  existing: string | null
+  multiple?: boolean
+  onPick: (files: File[]) => void
+  onRemove: (index: number) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground hover:bg-accent/40">
+        <Upload className="size-5" aria-hidden="true" />
+        <span>{hint}</span>
+        <input
+          type="file"
+          className="sr-only"
+          accept="image/png,image/jpeg,image/webp"
+          multiple={multiple}
+          onChange={(e) => {
+            onPick(Array.from(e.target.files ?? []))
+            e.target.value = ''
+          }}
+        />
+      </label>
+      {(files.length > 0 || existing) && (
+        <ul className="flex flex-wrap gap-3">
+          {existing && files.length === 0 && (
+            <li>
+              <img
+                src={existing}
+                alt={label}
+                className="size-24 rounded border border-border object-cover"
+              />
+            </li>
+          )}
+          {files.map((file, index) => (
+            <li key={file.name + index} className="relative">
+              <img
+                src={URL.createObjectURL(file)}
+                alt={file.name}
+                className="size-24 rounded border border-border object-cover"
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="secondary"
+                className="absolute -right-2 -top-2 size-6"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => onRemove(index)}
+              >
+                <X className="size-3" aria-hidden="true" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

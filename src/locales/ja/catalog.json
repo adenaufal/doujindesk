@@ -11,6 +11,7 @@
     "hall": "ホール",
     "block": "ブロック",
     "onlineShop": "通販あり",
+    "r18": "R18サークルを表示",
     "apply": "結果を表示",
     "clear": "すべて解除"
   },
@@ -26,7 +27,9 @@
     "noBooth": "配置未定",
     "penName": "PN",
     "r18Hidden": "R18 — タップで表示",
-    "r18Reveal": "R18の内容を表示"
+    "r18Reveal": "R18の内容を表示",
+    "share": "リンクをコピー",
+    "shared": "リンクをコピーしました"
   },
   "detail": {
     "about": "紹介",
@@ -67,5 +70,65 @@
     "showQr": "QRを表示",
     "used": "使用済み",
     "usedAt": "{{time}} に使用"
+  },
+  "guide": {
+    "intro": "参加サークル、配置、当日のプログラムをまとめて確認できます。",
+    "catalogBody": "全サークルを一覧し、ジャンルや作品で絞り込み、配置番号を確認します。",
+    "mapBody": "会場マップでブースの位置を確認します。",
+    "scheduleBody": "ステージ進行と開場・閉場の時間。",
+    "ticketsBody": "1日券・通し券を購入します。",
+    "walletBody": "入場用のQRチケット。",
+    "applyBody": "サークル参加を申し込む、または申込状況を確認します。",
+    "venue": "会場",
+    "dates": "開催日"
+  },
+  "wallet": {
+    "subtitle": "入場ゲートでQRを提示してください。オフラインでも表示できます。",
+    "empty": "チケットはまだありません",
+    "emptyBody": "購入したチケットは入場用QR付きでここに表示されます。",
+    "buy": "チケットを購入",
+    "order": "注文",
+    "holder": "名義",
+    "validUntil": "{{date}} まで有効",
+    "revoked": "無効",
+    "revokedBody": "返金またはキャンセル済みのため入場できません。",
+    "pending": "支払い待ち",
+    "pendingBody": "支払いが確認されるとQRが表示されます。",
+    "cached": "保存済みのチケットを表示しています（オフライン）。",
+    "passOf": "{{total}}枚中 {{index}}枚目",
+    "eventLabel": "イベント"
+  },
+  "tier": {
+    "title": "チケット種別",
+    "subtitle": "このイベントの価格・在庫・販売状況。",
+    "new": "種別を追加",
+    "edit": "種別を編集",
+    "name": "種別名",
+    "quantity": "販売枚数",
+    "sold": "{{total}}枚中 {{sold}}枚販売",
+    "saleEnd": "販売終了",
+    "status": "状態",
+    "empty": "チケット種別がありません",
+    "emptyBody": "販売を開始する前に種別を作成してください。",
+    "revenue": "チケット売上",
+    "pendingRevenue": "未確定",
+    "saveError": "種別を保存できませんでした。",
+    "description": "説明"
+  },
+  "checkout": {
+    "title": "チケット購入",
+    "signIn": "購入するにはサインイン",
+    "signInBody": "チケットはアカウントに紐づき、QRの再発行ができます。",
+    "empty": "販売は開始していません",
+    "emptyBody": "このイベントで販売中のチケットはまだありません。",
+    "summary": "ご注文内容",
+    "selectOne": "チケットを1枚以上選んでください。",
+    "maxPerOrder": "1回の注文は20枚までです。",
+    "placed": "注文 {{reference}} を受け付けました",
+    "placedBody": "支払いはゲートウェイで確認されます。QRは「チケット一覧」に表示されます。",
+    "viewWallet": "チケット一覧へ",
+    "failed": "購入を完了できませんでした。",
+    "increase": "{{tier}}を1枚追加",
+    "decrease": "{{tier}}を1枚削除"
   }
 }

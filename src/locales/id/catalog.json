@@ -11,6 +11,7 @@
     "hall": "Hall",
     "block": "Blok",
     "onlineShop": "Punya toko online",
+    "r18": "Tampilkan circle R18",
     "apply": "Tampilkan hasil",
     "clear": "Hapus semua"
   },
@@ -26,7 +27,9 @@
     "noBooth": "Booth belum ada",
     "penName": "PN",
     "r18Hidden": "R18 — ketuk untuk melihat",
-    "r18Reveal": "Tampilkan konten R18"
+    "r18Reveal": "Tampilkan konten R18",
+    "share": "Salin tautan",
+    "shared": "Tautan disalin"
   },
   "detail": {
     "about": "Tentang",
@@ -67,5 +70,65 @@
     "showQr": "Tampilkan QR",
     "used": "Terpakai",
     "usedAt": "Dipakai {{time}}"
+  },
+  "guide": {
+    "intro": "Rencanakan kunjungan Anda: siapa yang ikut, di mana boothnya, dan acaranya apa.",
+    "catalogBody": "Jelajahi semua circle, saring per genre dan fandom, temukan kode booth.",
+    "mapBody": "Cari lokasi booth di denah.",
+    "scheduleBody": "Acara panggung dan jam buka.",
+    "ticketsBody": "Beli tiket masuk untuk satu hari atau dua hari.",
+    "walletBody": "Tiket QR Anda, siap dipakai di pintu.",
+    "applyBody": "Daftar booth, atau cek status pendaftaran Anda.",
+    "venue": "Lokasi",
+    "dates": "Tanggal"
+  },
+  "wallet": {
+    "subtitle": "Tunjukkan QR di pintu masuk. Tetap tampil tanpa koneksi.",
+    "empty": "Belum ada tiket",
+    "emptyBody": "Tiket yang Anda beli muncul di sini lengkap dengan QR untuk pintu masuk.",
+    "buy": "Beli tiket",
+    "order": "Pesanan",
+    "holder": "Atas nama",
+    "validUntil": "Berlaku sampai {{date}}",
+    "revoked": "Dibatalkan",
+    "revokedBody": "Tiket ini sudah direfund atau dibatalkan dan tidak bisa masuk.",
+    "pending": "Menunggu pembayaran",
+    "pendingBody": "QR muncul setelah pembayaran dikonfirmasi.",
+    "cached": "Menampilkan tiket tersimpan — Anda sedang offline.",
+    "passOf": "Tiket {{index}} dari {{total}}",
+    "eventLabel": "Acara"
+  },
+  "tier": {
+    "title": "Jenis tiket",
+    "subtitle": "Harga, stok, dan penjualan untuk acara ini.",
+    "new": "Jenis baru",
+    "edit": "Ubah jenis",
+    "name": "Nama jenis",
+    "quantity": "Stok tersedia",
+    "sold": "{{sold}} dari {{total}} terjual",
+    "saleEnd": "Penjualan ditutup",
+    "status": "Status",
+    "empty": "Belum ada jenis tiket",
+    "emptyBody": "Buat jenis tiket sebelum membuka penjualan.",
+    "revenue": "Pendapatan tiket",
+    "pendingRevenue": "Belum pasti",
+    "saveError": "Jenis tiket gagal disimpan.",
+    "description": "Deskripsi"
+  },
+  "checkout": {
+    "title": "Beli tiket",
+    "signIn": "Masuk untuk membeli",
+    "signInBody": "Tiket terikat ke akun Anda supaya QR bisa diterbitkan ulang.",
+    "empty": "Penjualan belum dibuka",
+    "emptyBody": "Belum ada jenis tiket yang dijual untuk acara ini.",
+    "summary": "Ringkasan pesanan",
+    "selectOne": "Pilih minimal satu tiket.",
+    "maxPerOrder": "Maksimal 20 tiket per pesanan.",
+    "placed": "Pesanan {{reference}} dibuat",
+    "placedBody": "Pembayaran dikonfirmasi oleh gateway; QR muncul di Tiket saya.",
+    "viewWallet": "Buka tiket saya",
+    "failed": "Pembelian tidak dapat diselesaikan.",
+    "increase": "Tambah satu {{tier}}",
+    "decrease": "Kurangi satu {{tier}}"
   }
 }

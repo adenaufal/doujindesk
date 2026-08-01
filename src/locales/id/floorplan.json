@@ -1,0 +1,118 @@
+{
+  "editor": {
+    "title": "Alokasi booth",
+    "subtitle": "Tata booth di denah hall dan alokasikan ke circle yang sudah diterima.",
+    "canvas": "Denah lantai",
+    "hint": "Geser booth untuk memindahkan. Ketuk untuk mengubah atau mengalokasikan.",
+    "placeHint": "Ketuk denah untuk menaruh booth baru.",
+    "emptyTitle": "Belum ada booth di lantai ini",
+    "emptyBody": "Tambahkan booth pertama, atau impor denah yang pernah kamu ekspor.",
+    "unplaced": "Belum ditaruh",
+    "unplacedBody": "{{count}} booth sudah ada tetapi belum punya posisi. Buka lalu isi posisinya, atau geser dari daftar.",
+    "floor": "Lantai {{level}}",
+    "grid": "Kisi: {{size}} m",
+    "legend": "Keterangan"
+  },
+  "action": {
+    "addBooth": "Tambah booth",
+    "stopAdding": "Selesai menambah",
+    "export": "Ekspor denah",
+    "import": "Impor denah",
+    "clear": "Hapus posisi",
+    "assign": "Alokasikan circle",
+    "unassign": "Kosongkan booth",
+    "delete": "Hapus booth",
+    "showOnMap": "Tampilkan di denah",
+    "zoomIn": "Perbesar",
+    "zoomOut": "Perkecil",
+    "resetView": "Kembalikan tampilan"
+  },
+  "status": {
+    "available": "Tersedia",
+    "occupied": "Teralokasi",
+    "reserved": "Dipesan",
+    "maintenance": "Tidak dipakai"
+  },
+  "stat": {
+    "total": "Booth",
+    "available": "Tersedia",
+    "occupied": "Teralokasi",
+    "unplaced": "Belum ditaruh"
+  },
+  "filter": {
+    "search": "Cari booth",
+    "searchPlaceholder": "Nomor booth atau nama circle",
+    "status": "Status",
+    "allStatuses": "Semua status"
+  },
+  "list": {
+    "title": "Daftar booth",
+    "count": "{{shown}} dari {{total}}",
+    "noResults": "Tidak ada booth yang cocok di lantai ini.",
+    "clearSearch": "Hapus pencarian"
+  },
+  "detail": {
+    "title": "Booth {{number}}",
+    "number": "Nomor booth",
+    "type": "Tipe",
+    "zone": "Zona",
+    "status": "Status",
+    "width": "Lebar (m)",
+    "height": "Dalam (m)",
+    "x": "X (m)",
+    "y": "Y (m)",
+    "floor": "Lantai",
+    "circle": "Circle",
+    "noCircle": "Belum dialokasikan",
+    "pickCircle": "Pilih circle yang sudah diterima",
+    "noCandidates": "Semua circle yang diterima sudah punya booth.",
+    "unplacedNote": "Booth ini belum punya posisi. Isi X dan Y, atau geser di denah."
+  },
+  "clear": {
+    "title": "Hapus semua posisi di lantai {{level}}?",
+    "body": "{{count}} booth kehilangan posisinya. Booth dan alokasi circle tetap ada; hanya tata letaknya yang dihapus. Ekspor dulu kalau mungkin dibutuhkan lagi.",
+    "confirm": "Hapus posisi"
+  },
+  "conflict": {
+    "taken": "Booth {{booth}} baru saja diambil {{circle}}.",
+    "takenUnknown": "Booth {{booth}} baru saja dialokasikan panitia lain.",
+    "overlap": "Posisi itu bertumpuk dengan {{booths}}. Geser sampai tidak menimpa.",
+    "overlapServer": "Denah menolak posisi itu: booth {{booth}} akan menimpa booth lain.",
+    "circleHasBooth": "{{circle}} sudah memegang booth {{booth}}. Satu circle hanya boleh satu booth.",
+    "duplicateNumber": "Nomor booth {{booth}} sudah dipakai di event ini.",
+    "released": "Booth {{booth}} memang sudah kosong."
+  },
+  "toast": {
+    "saved": "Booth {{booth}} tersimpan",
+    "created": "Booth {{booth}} ditambahkan",
+    "deleted": "Booth {{booth}} dihapus",
+    "moved": "Booth {{booth}} dipindahkan",
+    "allocated": "Booth {{booth}} dialokasikan ke {{circle}}",
+    "freed": "Booth {{booth}} tersedia lagi",
+    "imported": "{{updated}} booth diperbarui, {{created}} ditambahkan",
+    "exported": "Denah diekspor",
+    "cleared": "{{count}} posisi dihapus"
+  },
+  "error": {
+    "loadTitle": "Denah lantai gagal dimuat",
+    "importFailed": "Impor gagal"
+  },
+  "map": {
+    "title": "Denah lantai",
+    "subtitle": "Temukan booth sebuah circle sebelum menyusuri hall.",
+    "searchPlaceholder": "Nama circle, pen name, atau nomor booth",
+    "results": "{{count}} hasil",
+    "noResults": "Tidak ada circle atau booth yang cocok.",
+    "emptyTitle": "Denah lantai belum terbit",
+    "emptyBody": "Panitia belum menata booth untuk event ini. Cek lagi mendekati hari-H.",
+    "selectHint": "Ketuk booth untuk melihat siapa di sana.",
+    "notPlaced": "{{circle}} ada di booth {{booth}}, tetapi belum ditaruh di denah.",
+    "unallocated": "Belum dialokasikan",
+    "boothLabel": "Booth {{number}}",
+    "zone": "Zona",
+    "genre": "Genre",
+    "rating": "Rating",
+    "viewInCatalog": "Lihat di katalog",
+    "you": "Pintu masuk"
+  }
+}

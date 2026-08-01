@@ -1,260 +1,220 @@
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useParams, useSearchParams } from 'react-router-dom'
+
 import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Separator } from './ui/separator'
-import { Badge } from './ui/badge'
-import { CreditCard, Shield, Clock, CheckCircle } from 'lucide-react'
-import { useTicketStore } from '../stores/ticketStore'
-import { useToast } from '../hooks/use-toast'
+import { EmptyState } from './ui/empty-state'
+import { formatMoney } from '@/lib/money'
+import { useCircle, useEvent, usePurchaseTickets, useTickets } from '@/lib/queries'
+import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/stores/authStore'
 
-interface PaymentProcessorProps {
-  ticketTypeId: string
-  quantity: number
-  onPaymentComplete: (paymentId: string) => void
-  onCancel: () => void
+/**
+ * Hand-off to the payment gateway, and the state of a payment on the way back.
+ *
+ * What this component deliberately does NOT do:
+ *   - hold card details. Four inputs here used to collect the card number,
+ *     expiry, security code and cardholder name. A PAN in the DOM puts the whole
+ *     application in PCI-DSS SAQ-D scope; a hosted checkout keeps it in SAQ-A.
+ *     They are gone and must not come back.
+ *   - decide that a payment succeeded. A three-second timer used to report
+ *     success unconditionally, so the app could not fail a payment and had no
+ *     failure path at all. Only `api/webhooks/payment.ts` — the gateway's own
+ *     signed callback — moves a row to `paid`.
+ *   - compute a total. The amount comes from `circles.total_amount` (priced by
+ *     the 004 trigger from `event_pricing`) or from `purchase_tickets()`, both
+ *     server-side.
+ *
+ * Provider: Midtrans Snap, the default for IDR in Indonesia. Every
+ * provider-specific line lives in the adapter inside `api/webhooks/payment.ts`;
+ * this file only knows "POST to the checkout endpoint, then go where it says".
+ */
+
+/** Where the gateway sends the browser back to. Snap appends its own query. */
+const RETURN_PARAM = 'transaction_status'
+
+type Phase = 'idle' | 'redirecting' | 'failed'
+
+export interface PaymentProcessorProps {
+  /** An accepted circle application paying its space fee. */
+  circleId?: string
+  /** An existing ticket order created by `purchase_tickets()`. */
+  purchaseId?: string
+  /**
+   * ponytail: the tier-and-quantity entry point, kept because `TicketingSystem`
+   * (owned by P13, rewritten in this same wave) still calls it that way. A tier
+   * id is not an order, so this path calls `purchase_tickets()` first. Delete
+   * these two props once the checkout screen passes a `purchaseId`.
+   */
+  ticketTypeId?: string
+  quantity?: number
+  onPaymentComplete?: (reference: string) => void
+  onCancel?: () => void
 }
 
-interface PaymentMethod {
-  id: string
-  name: string
-  type: 'credit_card' | 'debit_card' | 'bank_transfer' | 'e_wallet'
-  icon: string
-  processingFee: number
-}
-
-const paymentMethods: PaymentMethod[] = [
-  { id: 'visa', name: 'Visa', type: 'credit_card', icon: '💳', processingFee: 0.029 },
-  { id: 'mastercard', name: 'Mastercard', type: 'credit_card', icon: '💳', processingFee: 0.029 },
-  { id: 'bca', name: 'BCA Transfer', type: 'bank_transfer', icon: '🏦', processingFee: 0.007 },
-  { id: 'mandiri', name: 'Mandiri Transfer', type: 'bank_transfer', icon: '🏦', processingFee: 0.007 },
-  { id: 'gopay', name: 'GoPay', type: 'e_wallet', icon: '📱', processingFee: 0.015 },
-  { id: 'ovo', name: 'OVO', type: 'e_wallet', icon: '📱', processingFee: 0.015 }
-]
-
-export default function PaymentProcessor({ 
-  ticketTypeId, 
-  quantity, 
-  onPaymentComplete, 
-  onCancel 
+export default function PaymentProcessor({
+  circleId,
+  purchaseId,
+  ticketTypeId,
+  quantity = 1,
+  onPaymentComplete,
+  onCancel,
 }: PaymentProcessorProps) {
-  const { ticketTypes, currency } = useTicketStore()
-  const { toast } = useToast()
-  
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('')
-  const [paymentStep, setPaymentStep] = useState<'details' | 'payment' | 'processing' | 'complete'>('details')
-  const [paymentData, setPaymentData] = useState({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: '',
-    email: '',
-    phone: ''
-  })
+  const { eventId } = useParams()
+  const { t, i18n } = useTranslation(['circle', 'common'])
+  const [params] = useSearchParams()
+  const userId = useAuthStore((s) => s.user?.id ?? null)
 
-  const ticketType = ticketTypes.find(t => t.id === ticketTypeId)
-  if (!ticketType) return null
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [failure, setFailure] = useState<string | null>(null)
 
-  const subtotal = (currency === 'IDR' ? ticketType.price_idr : ticketType.price_usd) * quantity
-  const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod)
-  const processingFee = selectedMethod ? subtotal * selectedMethod.processingFee : 0
-  const total = subtotal + processingFee
+  const { data: event } = useEvent(eventId)
+  const { data: circle } = useCircle(circleId)
+  const { data: tiers } = useTickets(ticketTypeId ? eventId : undefined)
+  const purchase = usePurchaseTickets(eventId ?? '', userId ?? undefined)
 
-  const handlePaymentSubmit = async () => {
-    if (!selectedPaymentMethod) {
-      toast({
-        title: "Payment Method Required",
-        description: "Please select a payment method to continue.",
-        variant: "destructive"
-      })
-      return
-    }
+  const currency = event?.currency ?? 'IDR'
+  const tier = tiers.find((x) => x.id === ticketTypeId) ?? null
 
-    setPaymentStep('processing')
+  const amount = circle
+    ? Number(circle.total_amount)
+    : tier
+      ? Number(tier.price) * quantity
+      : null
+  const label = circle?.circle_name ?? tier?.ticket_type ?? ''
 
-    // Simulate payment processing
-    setTimeout(() => {
-      const paymentId = `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      setPaymentStep('complete')
-      
-      setTimeout(() => {
-        onPaymentComplete(paymentId)
-        toast({
-          title: "Payment Successful",
-          description: `Payment of ${currency} ${total.toLocaleString()} completed successfully.`
-        })
-      }, 2000)
-    }, 3000)
+  // The gateway sends the browser back with its own result on the query string.
+  // It is a hint for the UI only — the webhook is what moves money.
+  const returned = params.get(RETURN_PARAM)
+  if (returned) {
+    const settled = returned === 'settlement' || returned === 'capture'
+    const waiting = returned === 'pending'
+    return (
+      <EmptyState
+        icon={settled ? CheckCircle2 : waiting ? Clock : AlertTriangle}
+        title={
+          settled
+            ? t('common:status.paid')
+            : waiting
+              ? t('common:status.pending')
+              : t('common:error.generic')
+        }
+        description={
+          settled
+            ? t('status.title')
+            : waiting
+              ? 'The gateway has your payment and is confirming it. This page updates once it does.'
+              : 'The payment did not go through. Nothing was charged — you can try again.'
+        }
+        action={
+          settled ? undefined : (
+            <Button onClick={() => void start()}>{t('common:error.tryAgain')}</Button>
+          )
+        }
+      />
+    )
   }
 
-  const renderPaymentDetails = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span>{ticketType.name} × {quantity}</span>
-            <span>{currency} {subtotal.toLocaleString()}</span>
-          </div>
-          {selectedMethod && (
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Processing Fee ({(selectedMethod.processingFee * 100).toFixed(1)}%)</span>
-              <span>{currency} {processingFee.toLocaleString()}</span>
-            </div>
-          )}
-          <Separator />
-          <div className="flex justify-between font-semibold">
-            <span>Total</span>
-            <span>{currency} {total.toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
+  if (amount === null) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title={t('common:error.notFound')}
+        description={t('common:empty.noData.description')}
+        action={onCancel ? <Button variant="outline" onClick={onCancel}>{t('common:action.cancel')}</Button> : undefined}
+      />
+    )
+  }
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Payment Method</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {paymentMethods.map((method) => (
-            <Button
-              key={method.id}
-              variant={selectedPaymentMethod === method.id ? "default" : "outline"}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-              onClick={() => setSelectedPaymentMethod(method.id)}
-            >
-              <span className="text-2xl">{method.icon}</span>
-              <span className="text-sm">{method.name}</span>
-              <Badge variant="secondary" className="text-xs">
-                {(method.processingFee * 100).toFixed(1)}% fee
-              </Badge>
-            </Button>
-          ))}
-        </div>
-      </div>
+  async function start() {
+    setPhase('redirecting')
+    setFailure(null)
+    try {
+      let target = circleId
+        ? { kind: 'circle' as const, referenceId: circleId }
+        : purchaseId
+          ? { kind: 'ticket_order' as const, referenceId: purchaseId }
+          : null
 
-      {selectedMethod && selectedMethod.type === 'credit_card' && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Card Details</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="cardNumber">Card Number</Label>
-              <Input
-                id="cardNumber"
-                placeholder="1234 5678 9012 3456"
-                value={paymentData.cardNumber}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, cardNumber: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="expiryDate">Expiry Date</Label>
-              <Input
-                id="expiryDate"
-                placeholder="MM/YY"
-                value={paymentData.expiryDate}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, expiryDate: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cvv">CVV</Label>
-              <Input
-                id="cvv"
-                placeholder="123"
-                value={paymentData.cvv}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, cvv: e.target.value }))}
-              />
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="cardholderName">Cardholder Name</Label>
-              <Input
-                id="cardholderName"
-                placeholder="John Doe"
-                value={paymentData.cardholderName}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, cardholderName: e.target.value }))}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      // Tier + quantity: the order has to exist before it can be paid for, and
+      // `purchase_tickets` is the only write path into `ticket_purchases`.
+      if (!target && ticketTypeId) {
+        const order = await purchase.mutateAsync({ ticketId: ticketTypeId, quantity })
+        onPaymentComplete?.(order.order_reference ?? order.order_id)
+        target = { kind: 'ticket_order', referenceId: order.order_id }
+      }
+      if (!target) throw new Error('Nothing to pay for.')
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="john@example.com"
-              value={paymentData.email}
-              onChange={(e) => setPaymentData(prev => ({ ...prev, email: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              placeholder="+62 812 3456 7890"
-              value={paymentData.phone}
-              onChange={(e) => setPaymentData(prev => ({ ...prev, phone: e.target.value }))}
-            />
-          </div>
-        </div>
-      </div>
+      const { data } = await supabase.auth.getSession()
+      const response = await fetch('/api/webhooks/payment', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${data.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({
+          action: 'checkout',
+          kind: target.kind,
+          reference_id: target.referenceId,
+          return_url: window.location.href,
+        }),
+      })
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
-        </Button>
-        <Button onClick={handlePaymentSubmit} className="flex-1">
-          <CreditCard className="h-4 w-4 mr-2" />
-          Pay {currency} {total.toLocaleString()}
-        </Button>
-      </div>
-    </div>
-  )
-
-  const renderProcessing = () => (
-    <div className="text-center py-8">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-      <h3 className="text-lg font-semibold mb-2">Processing Payment</h3>
-      <p className="text-muted-foreground">Please wait while we process your payment...</p>
-      <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
-        <Shield className="h-4 w-4" />
-        <span>Secured by 256-bit SSL encryption</span>
-      </div>
-    </div>
-  )
-
-  const renderComplete = () => (
-    <div className="text-center py-8">
-      <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-      <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
-      <p className="text-muted-foreground mb-4">
-        Your tickets will be generated and sent to your email shortly.
-      </p>
-      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Clock className="h-4 w-4" />
-        <span>Processing tickets...</span>
-      </div>
-    </div>
-  )
+      const body = (await response.json().catch(() => null)) as { redirect_url?: string; error?: string } | null
+      if (!response.ok || !body?.redirect_url) {
+        throw new Error(
+          body?.error ??
+            `Checkout is unavailable (HTTP ${response.status}). The gateway handoff is a serverless function — it runs under \`vercel dev\` or a deployment, never \`pnpm dev\`.`,
+        )
+      }
+      window.location.assign(body.redirect_url)
+    } catch (err) {
+      setPhase('failed')
+      setFailure(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Payment Processing
-        </CardTitle>
-        <CardDescription>
-          Complete your ticket purchase securely
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {paymentStep === 'details' && renderPaymentDetails()}
-        {paymentStep === 'processing' && renderProcessing()}
-        {paymentStep === 'complete' && renderComplete()}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-sm text-muted-foreground text-pretty">{label}</span>
+        <span className="text-xl font-semibold tabular-nums text-foreground">
+          {formatMoney(amount, currency, i18n.language)}
+        </span>
+      </div>
+
+      {/* No fee table: the processing fee is the gateway's to state, and an
+          invented percentage on this screen is a number nobody can reconcile.
+          Snap's own page carries the channel list and any surcharge. */}
+      <p className="text-sm text-muted-foreground">
+        Card, bank transfer (BCA / Mandiri / BNI virtual account), GoPay and QRIS are
+        accepted on the gateway's page.
+      </p>
+
+      {failure && (
+        <p role="alert" className="rounded-md bg-destructive-subtle p-3 text-sm text-destructive">
+          {failure}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row-reverse">
+        <Button
+          className="sm:flex-1"
+          disabled={phase === 'redirecting'}
+          onClick={() => void start()}
+        >
+          <ExternalLink aria-hidden="true" />
+          {phase === 'redirecting'
+            ? t('common:status.loading')
+            : `${t('status.payNow')} · ${formatMoney(amount, currency, i18n.language)}`}
+        </Button>
+        {onCancel && (
+          <Button variant="outline" onClick={onCancel}>
+            {t('common:action.cancel')}
+          </Button>
+        )}
+      </div>
+    </div>
   )
 }
