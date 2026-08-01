@@ -26,12 +26,18 @@ financial_transactions all subquery it. Today nothing is authenticated, so nothi
 runs them. The first real login raises `42P17` on six tables simultaneously, and it
 will read as an auth bug for as long as it takes someone to find the policy.
 
-**4. Two silent breakages in shipped code.** `tailwind.config.js:33` emits
-`hsl(var(--primary))` with no `<alpha-value>`, so every `bg-primary/90` and
-`ring-ring/50` in the repo compiles to no CSS at all. And
-`CircleManagement.tsx:433,464` writes application status `'approved'`, which the
-CHECK constraint rejects — it only permits `'accepted'`. The review queue throws on
-every approval.
+**4. `CircleManagement.tsx:433,464` writes application status `'approved'`**, which
+the CHECK constraint rejects — it only permits `'accepted'`. The review queue throws
+on every approval.
+
+> **Correction.** An earlier draft of this plan listed a second breakage here: that
+> `tailwind.config.js` emitting `hsl(var(--primary))` without `<alpha-value>` made
+> every `bg-primary/90` and `ring-ring/50` compile to nothing. That is false.
+> Tailwind v3.4.17 infers the alpha channel from the bare form; compiling HEAD's
+> config in isolation emits `hsl(var(--primary) / 0.9)` and `hsl(var(--ring) / 0.5)`
+> correctly. `P7-design-system` verified this before editing and landed the
+> canonical `<alpha-value>` form anyway — it is the documented contract and survives
+> a Tailwind v4 upgrade — but no rendering changed and nothing was broken.
 
 Points 3 and 4 are not unfinished work. They are wrong models, and any feature
 built on top of them gets rebuilt. Hence risk-first sequencing.
