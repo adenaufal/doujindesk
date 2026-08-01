@@ -15,6 +15,19 @@ and `P16-hardening` restructure this file.
   and deleted `supabase/config.ts` in the same commit, so tracking migrations never
   exposed the plaintext service role key it held. `001_initial_schema.sql` is now
   tracked. Added `.env.example` (four names, no values) and extended `.vercelignore`.
+- `P2-rls-foundation` — wrote `supabase/migrations/002_identity_and_rls.sql`:
+  `profiles` + `app_role` enum with a signup trigger that cannot mint an organizer,
+  `staff` hardened into a real membership table, and four `SECURITY DEFINER`
+  helpers (`current_app_role`, `is_event_staff`, `is_event_organizer`,
+  `manages_profile`) that end the 42P17 recursion — every 001 policy is dropped and
+  rewritten so no policy predicate names `staff`. Also: separate `TO anon` /
+  `TO authenticated` read policies, a `BEFORE UPDATE` guard so a circle owner can
+  no longer self-approve or zero their own `total_amount`, all seven `GRANT ALL`
+  replaced with narrow verb sets (GRANT ALL includes TRUNCATE, which ignores RLS),
+  column-level UPDATE grant on `profiles` so nobody self-promotes, working
+  `updated_at` triggers, and `events.timezone`. `supabase/migrations/README.md`
+  carries the apply order plus six paste-able `SET LOCAL role` assertions. Not
+  applied — see Blocked.
 - `P3-platform` — dropped 13 dependencies (leaflet ×3, express/cors/dotenv/nodemon/
   concurrently + their types, the two Trae IDE plugins, `vite-tsconfig-paths`),
   added TanStack Query, i18next, `@fontsource-variable/figtree`, Vitest + Testing
