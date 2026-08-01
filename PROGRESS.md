@@ -1,9 +1,92 @@
 # DoujinDesk — Progress
 
-Branch: `feat/functional-rebuild`. Brief: `PLAN_PROMPT.md`. Plan: `PLAN.md`.
+Branch: `feat/functional-rebuild`. Brief: `PLAN_PROMPT.md`. Plan: `PLAN.md` (16 packages, 7 waves).
 
-Every package appends one line under **Done** when it lands. Only `P1-repo-hygiene`
-and `P16-hardening` restructure this file.
+**Status: waves 0-3 landed. Waves 4-6 not started.** 14 commits. Typecheck, tests and
+build are green; `pnpm lint` is not (see Known-not-done).
+
+---
+
+## Start here next session
+
+```
+Wave 4  P9-data-layer                                                    <- next, serial, gates everything
+Wave 5  P11-circle-path, P12-booth-floorplan,
+        P13-attendee-surface, P14-organizer-ops                          4 parallel
+Wave 6  P16-hardening                                                    criteria sweep, README, a11y
+```
+
+Each package's full instruction is in `PLAN.md` under its `### <id>` heading. An
+implementer agent needs `PLAN_PROMPT.md` plus its own package section and nothing else.
+
+**Do Wave 4 before anything else.** `P9-data-layer` authors the seam all four Wave 5
+packages build on: `database.types.ts` generated against migrations 001-006,
+`createClient<Database>`, and the TanStack Query hook pattern. Four agents writing
+features in parallel against an unstable seam produce four different shapes. It also
+deletes `circleStore`, `ticketStore`, `financialStore` and `staffStore`, which are
+hand-rolled caches of server data that TanStack Query supersedes.
+
+---
+
+## Blocked - needs the owner
+
+1. **Apply the migrations.** Six files in `supabase/migrations/` are written, committed
+   and never run. `.env` points at a live project (`iaieygnykpwckdwkhcqc`). Review, then
+   `supabase db push`. `supabase/migrations/README.md` carries the apply order plus six
+   paste-able `SET LOCAL role` assertions that prove the RLS policies do what they claim.
+   **Nothing from Wave 4 on can be tested end to end until this lands** - the app now
+   authenticates for real against a database whose `profiles` table does not exist yet.
+
+2. **Rotate the Supabase service role key.** It sat in plaintext in `supabase/config.ts`
+   on disk. Verified never committed (`git log --all -S 'service_role'` is empty) and the
+   file is deleted, so this is precaution rather than incident response - but `exp` is
+   2035 and rotation is cheap.
+
+3. **Confirm or revert the brand colour change.** Light `--primary` moved `#ff4500` ->
+   `#d63900` because the original measured 3.44:1 on a 14px button label, under the 4.5:1
+   AA threshold criterion 6 requires. To keep the original orange exactly: revert
+   `--primary` and add a `--primary-strong` (16 100% 42%) used only by text-bearing
+   surfaces - one token plus a Button variant change.
+
+4. **Supply a brand SVG for the PWA icons.** They were generated from
+   `public/favicon.svg`, which is green on near-black and does not match the orange brand.
+   `pnpm dlx @vite-pwa/assets-generator --preset minimal-2023 public/<brand>.svg`
+
+---
+
+## Known-not-done
+
+- **Mock data still reaches 9 screens**: `AnnouncementSystem`, `AttendeeRegistration`,
+  `CircleCatalog`, `EventGuide`, `EventSchedule`, `FinancialManagement`, `InteractiveMap`,
+  `NotificationCenter`, `QueueStatus` - plus `eventStore` and `financialStore`. All owned
+  by Wave 5. Success criterion 1 is not met yet.
+- **`CircleManagement.tsx:433,464` writes status `'approved'`**, which the CHECK
+  constraint rejects - it only permits `'accepted'`. The review queue throws on every
+  approval. `P11-circle-path` owns the fix.
+- **`pnpm lint` exits 1** on 21 errors + 8 warnings, all pre-existing `no-explicit-any` /
+  `no-unused-vars` in Wave 5 files. The new token gate contributes zero. Each Wave 5
+  package removes its own files from the baseline in `eslint.config.js`.
+- **The floor plan needs rebuilding on plain SVG.** `leaflet`/`react-leaflet` were dropped
+  as dead weight; `P12-booth-floorplan` builds the geometry model directly.
+- **Bundle is 929 kB** (266 kB gzipped) in a single chunk. Unaddressed.
+- **No payment webhook yet.** `api/` holds no server. `P11-circle-path` adds exactly one
+  `@vercel/node` handler at `api/webhooks/payment.ts`. It can only be exercised via
+  `vercel dev` or a preview deploy, never `pnpm dev`.
+
+---
+
+## Correction to the plan
+
+`PLAN.md` originally claimed `tailwind.config.js` emitting `hsl(var(--primary))` without
+`<alpha-value>` made every `bg-primary/90` compile to nothing. **False.** Tailwind
+v3.4.17 infers the alpha channel from the bare form. `P7-design-system` caught it by
+compiling HEAD's config in isolation rather than trusting the plan; independently
+re-verified. Retracted in `PLAN.md` (commit `6e867d3`). The canonical `<alpha-value>`
+form landed anyway as upgrade insurance, but nothing was broken.
+
+Treat the rest of the plan the same way: test a premise before building on it.
+
+---
 
 ## Done
 
@@ -342,31 +425,10 @@ and `P16-hardening` restructure this file.
   New `shell` i18n namespace in en/ja/id. 10 tests: `RequireRole.test.tsx` (4)
   and `layout/nav.test.ts` (6).
 
-## In progress
+---
 
-- Wave 1 — `P2-rls-foundation`, `P3-platform`, `P7-design-system`
-- Wave 2 — `P4-scan-contract` landed; `P5-money-core`, `P15-i18n` outstanding
+## Deferred - outside the scope fence
 
-## Blocked
-
-- **Migrations cannot be applied from here.** `.env` points at a live Supabase
-  project (`iaieygnykpwckdwkhcqc`). Every `supabase/migrations/00N_*.sql` this plan
-  produces is written and committed but never run. Applying them is the owner's
-  call: `supabase db push`, after review.
-- **Owner must rotate the Supabase service role key.** It sat in plaintext in
-  `supabase/config.ts` on disk; treat it as compromised regardless of the
-  gitignore. It was never committed (verified: `git log --all -S 'service_role'`
-  is empty) and the file is now deleted, but the key is long-lived (`exp` 2035),
-  it was readable by anything with filesystem access, and rotation is cheap.
-
-- **`pnpm build` cannot run yet — `node_modules` is pruned.** `node_modules/react/`
-  and `node_modules/@types/*/` are empty directories, so `tsc -b` fails with seven
-  `TS2688 Cannot find type definition file` errors before it reaches any source.
-  Pre-existing and unrelated to any source change; it clears the moment
-  `P3-platform` runs `pnpm install`. Until then no package can honestly report a
-  green build.
-
-## Deferred
 
 Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
 rather than an implementation.

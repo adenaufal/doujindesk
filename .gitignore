@@ -123,10 +123,10 @@ supabase/config.ts
 *.der
 
 # Credential Files
-secrets.json
-credentials.json
-auth.json
-config.json
+/secrets.json
+/credentials.json
+/auth.json
+/config.json
 .secrets/
 secrets/
 
