@@ -6,7 +6,7 @@ import type { EventRow } from '@/lib/database.types'
  * What is left of the event store: one nullable field, no persistence, no data.
  *
  * Everything else it held was server state wearing client-state clothes — a
- * hardcoded 'Comic Frontier 18', five invented aggregates (`totalBooths`,
+ * hardcoded event name, five invented aggregates (`totalBooths`,
  * `soldTickets`, `revenue: { idr, usd }`, a pair that contradicts the schema's
  * single per-event `currency` and criterion 4's "totals derive from rows") and
  * two `await sleep(1000)` fake fetches. Read events with `useEvents()` /
