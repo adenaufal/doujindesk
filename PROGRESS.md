@@ -56,6 +56,45 @@ and `P16-hardening` restructure this file.
   - `pnpm lint` still exits 1 on 24 pre-existing errors in files owned by other
     packages (`stores/*`, `components/*`, `ui/badge|button|form|textarea`). Not
     touched here; P7 installs the lint gate and the baseline disables.
+- `P7-design-system` — collapsed `src/index.css` to one token source (deleted the
+  Tailwind-v4 `@theme inline` block and the duplicate raw-hex `:root`/`.dark`
+  inside `@layer base`, ~185 dead lines, as its own revertible commit), then made
+  the palette legal: `--primary` 16 100% 50% → **16 100% 42%** in light so a 14px
+  button label clears AA (3.44:1 → 4.72:1); `--destructive` is a real red instead
+  of being byte-identical to `--primary`; `--success`/`--warning`/`--info` added
+  with a `-foreground` and a `-subtle` surface each. 41 assertions in
+  `src/components/ui/tokens.test.ts` hold every pair at ≥4.5:1 in both themes and
+  fail if a second `:root` or an `@theme` block reappears. `tailwind.config.js`
+  now exposes the `--shadow-*` tokens as `boxShadow` (making `shadow-xs` real),
+  the 8 sidebar colours, `borderRadius.xl`, and a `coarse:` variant for 44px tap
+  targets. Fonts: one `@import '@fontsource-variable/figtree'` replaces the Google
+  Fonts URL and the 98-line "local backup" that pointed at gstatic TTFs; CJK
+  system fallback appended to `--font-sans`; `--font-mono` no longer points at a
+  proportional face. Primitives: `<CardAction>` was landing in the wrong grid cell
+  because `has-data-[slot=…]` is v4 shorthand that compiled to nothing; badge
+  gained success/warning/info/danger variants. `EmptyState` replaces
+  `src/components/Empty.tsx`. An ESLint `no-restricted-syntax` gate rejects raw
+  palette classes, gradients and hex in `.tsx`, with the 17 known-bad files
+  baselined in `eslint.config.js`.
+  - **The alpha-value bug in the plan does not exist.** `PLAN.md` "Verified
+    starting state" #4 claims `hsl(var(--primary))` without `<alpha-value>` makes
+    every `bg-primary/90` and `ring-ring/50` compile to nothing. Compiling HEAD's
+    config in a scratch project before editing showed the opposite: Tailwind
+    v3.4.17 infers the alpha channel itself, and both utilities were already
+    emitting `hsl(var(--primary) / 0.9)` and `hsl(var(--ring) / 0.5)`. The
+    canonical `<alpha-value>` form is still what landed — it is the documented
+    contract and survives a Tailwind upgrade — but no rendering changed, and the
+    "every focus ring renders blue-500" consequence was never true.
+  - **Brand change to confirm.** Light-theme `--primary` is now `#d63900`, not
+    `#ff4500`. If the owner wants the original orange kept exactly, the
+    alternative is reverting `--primary` and adding a `--primary-strong`
+    (16 100% 42%) used only by text-bearing surfaces — one extra token and a
+    Button variant change, no other edits.
+  - `pnpm lint` exits 1 on **23** pre-existing errors (`no-explicit-any`,
+    `no-unused-vars`, `prefer-const`) in `stores/*`, `hooks/use-toast.ts` and 7
+    screen components — all owned by later packages. The new token gate
+    contributes **0** violations. One of the 24 (`ui/textarea.tsx`) was in this
+    package's lane and is fixed.
 
 ## In progress
 
@@ -92,3 +131,8 @@ rather than an implementation.
   chat system" explicitly).
 - Web Push *send* — needs VAPID keys and a server route to hold the private half.
   In-app notifications cover the same jobs without either.
+- 23 pre-existing `@typescript-eslint` errors (`no-explicit-any`,
+  `no-unused-vars`, `prefer-const`) in `src/stores/*`, `src/hooks/use-toast.ts`
+  and 7 screen components. Left alone by P7 — those files belong to P9 (which
+  deletes four of the stores outright) and to the Wave 5 screen packages. P16
+  closes whatever survives.
