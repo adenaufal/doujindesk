@@ -32,6 +32,13 @@ and `P16-hardening` restructure this file.
   is empty) and the file is now deleted, but the key is long-lived (`exp` 2035),
   it was readable by anything with filesystem access, and rotation is cheap.
 
+- **`pnpm build` cannot run yet — `node_modules` is pruned.** `node_modules/react/`
+  and `node_modules/@types/*/` are empty directories, so `tsc -b` fails with seven
+  `TS2688 Cannot find type definition file` errors before it reaches any source.
+  Pre-existing and unrelated to any source change; it clears the moment
+  `P3-platform` runs `pnpm install`. Until then no package can honestly report a
+  green build.
+
 ## Deferred
 
 Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
