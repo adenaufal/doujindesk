@@ -425,6 +425,76 @@ Treat the rest of the plan the same way: test a premise before building on it.
   New `shell` i18n namespace in en/ja/id. 10 tests: `RequireRole.test.tsx` (4)
   and `layout/nav.test.ts` (6).
 
+- `P9-data-layer` — the seam Wave 5 builds on, plus demo mode.
+  `src/lib/database.types.ts` is hand-derived from migrations 001-006 (17 tables,
+  2 views, 2 RPCs, every CHECK constraint as a union) and the client is
+  `createClient<Database>`, so a wrong column name is now a build error rather
+  than a PGRST204 at the door. The two hand-written interfaces in
+  `src/lib/supabase.ts` that lied about ~14 columns are gone; `Circle`/`Event`
+  survive only as deprecated aliases, with `space_preference`/`space_size` typed
+  as the phantoms they are so `CircleManagement.tsx` (P11's file) keeps
+  compiling. Regeneration command is in the header comment — run it the day the
+  migrations land. `src/lib/queryClient.ts` (no refetch-on-focus, retry 2,
+  staleTime 30s, gcTime 24h, mutations never retried) is mounted in `main.tsx`.
+  `src/lib/queries/` is 12 table modules + `keys.ts` + `core.ts`, where every
+  list hook returns `{ data, isLoading, error, isEmpty, refetch }` so a screen
+  writes one set of loading/error/empty branches; `useFinancialSummary` selects
+  from `event_financial_summary` and `useCircleCatalog` from the `circle_catalog`
+  view, never the base table. `src/lib/useRealtimeTable.ts` is one
+  invalidate-only subscription hook. **The pattern Wave 5 must follow is the
+  header comment in `src/lib/queries/index.ts`** — four rules, and the reason
+  none of them mention demo mode.
+  - **Demo mode**, added this session at the owner's request so `npm run dev` is
+    clickable before any migration is applied. `VITE_DEMO_MODE` defaults ON in
+    dev and OFF in a build; explicit `'true'`/`'false'` wins, so
+    `VITE_DEMO_MODE=false pnpm dev` develops against real data post-apply. The
+    seam is **one line in `src/lib/supabase.ts`**: the export is either the real
+    client or `src/lib/demo/client.ts`, a hand-rolled PostgREST subset over an
+    in-memory store — 14 filters, insert/update/delete/upsert, single/maybeSingle,
+    count, a fake realtime channel that emits on write, and demo-mode
+    reimplementations of `redeem_tickets` and `purchase_tickets` that mirror 003
+    and 004 (one pass per head, oversell guard, the duplicate path, the ledger row
+    a trigger would write). No component knows which client it holds. Fixtures are
+    one module per surface under `src/lib/fixtures/` — real circle names
+    (猫町堂, Kopi Susu Studio, 亜細亜組), IDR amounts that match `event_pricing`,
+    twelve booths with real geometry, tickets across sold-out/active/refunded and
+    **one pass already redeemed**, so a rescan produces the duplicate sheet.
+    Views are computed on read exactly as the SQL derives them. Demo auth is a
+    role picker in a dismissible banner mounted from `main.tsx`, rendered only
+    when demo mode is on — with it off the picker is not wired, not merely
+    hidden. `src/lib/fixtures/README.md` is the recipe for adding a surface.
+    7 tests in `src/lib/demo/` including a full `<App/>` render on an organizer
+    route with no Supabase connection.
+  - **The four store deletions did NOT land, and this is the one thing to know
+    going into Wave 5.** `circleStore`, `ticketStore`, `financialStore` and
+    `staffStore` cannot be deleted from inside this package: `Dashboard`,
+    `FinancialManagement`, `StaffCoordination`, `TicketingSystem`,
+    `AttendeeRegistration` and `PaymentProcessor` destructure 6-15 bindings each
+    out of them, all six files belong to Wave 5, and deleting the stores without
+    editing those files breaks the build. Ownership: **P14** deletes
+    `circleStore`, `financialStore` and `staffStore` (it owns all three
+    consumers); **P13** deletes `ticketStore`, and **P11 must drop
+    `PaymentProcessor`'s `useTicketStore` import in the same wave** — that one
+    import is the only cross-package edge, so whoever lands second re-runs
+    `tsc`. Nothing new imports them: `src/stores/index.ts` no longer re-exports
+    them.
+  - `eventStore` **was** shrunk, in-lane: 176 lines to 35, the 'Comic Frontier
+    18' literal, the five invented aggregates (including the `revenue: {idr,usd}`
+    pair that contradicts the schema's single per-event `currency`) and both
+    `await sleep(1000)` fake fetches are gone, and `persist` went with them. What
+    is left is one always-null `currentEvent` that exists solely because
+    `Dashboard.tsx:205` and `EventGuide.tsx:246` read `currentEvent?.name`;
+    delete the file when they move to `useEvent(eventId)`.
+  - **The localStorage trap is closed.** `src/main.tsx` removes the five stale
+    `persist` keys on boot (`circle-store`, `ticket-store`, `financial-store`,
+    `doujindesk-staff-store`, `event-store`). Without it, deleting mock arrays
+    from source satisfies `grep -rn "Mock"` while the owner's own browser keeps
+    rehydrating Sakura Studios and Rp 2.500.000.000 forever — the single most
+    likely way criterion 1 gets falsely marked done.
+  - Measured, not assumed: the demo layer costs **12 kB raw / 4 kB gzipped** in a
+    production build (built both ways to compare). The bundle-size line under
+    Known-not-done predates P8/P10/P15 and is no longer 929 kB.
+
 ---
 
 ## Deferred - outside the scope fence
@@ -432,6 +502,12 @@ Treat the rest of the plan the same way: test a premise before building on it.
 
 Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
 rather than an implementation.
+
+- `README.md` needs a demo-mode section (`VITE_DEMO_MODE`, the role picker,
+  "writes are lost on reload"). It is P16's file; the content is written and
+  ready to lift from `src/lib/fixtures/README.md`, and the banner states the
+  reload caveat on screen in the meantime.
+- `.env.example` should list `VITE_DEMO_MODE` (P1's file, one line, no value).
 
 - `.gitignore` line 128 is a blanket `auth.json` (meant for composer/npm
   credential files) and it silently ate `src/locales/{en,ja,id}/auth.json` — they

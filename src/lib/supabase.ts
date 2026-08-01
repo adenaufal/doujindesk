@@ -1,75 +1,72 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+import type { Database } from './database.types'
+import { DEMO_MODE } from './demo'
+import { demoClient } from './demo/client'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+/**
+ * The one client. Typed with `Database` (hand-derived from migrations 001–006 —
+ * see `database.types.ts`), so a typo in a column name is a build error instead
+ * of a PGRST204 at the door.
+ *
+ * In demo mode this is a fixture-backed stand-in with the same surface. That
+ * substitution happens here and nowhere else: no component, hook or store knows
+ * which one it holds. See `src/lib/demo/client.ts`.
+ *
+ * Row types come from `database.types.ts` (`TableRow<'circles'>`). The
+ * hand-written `Event`/`Circle` interfaces that used to live in this file were
+ * wrong about ~14 columns and are deleted; `tsc` never caught it because the
+ * client was untyped.
+ *
+ * ponytail: the demo client is imported statically, so its fixtures ride along in
+ * a production bundle even with demo mode off. Measured cost: 12 kB raw, 4 kB
+ * gzipped. Upgrade path if that ever matters: a dynamic import behind an async
+ * accessor — which costs every caller an `await`, and the callers include the
+ * scan queue.
+ */
+function realClient() {
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !anonKey) {
+    throw new Error(
+      'Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. Set them in .env, or run with VITE_DEMO_MODE=true for fixture data.',
+    )
+  }
+  return createClient<Database>(url, anonKey)
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = DEMO_MODE ? demoClient : realClient()
 
-// Database types
-export interface Event {
-  id: string
-  name: string
-  description?: string
-  start_date: string
-  end_date: string
-  venue: string
-  max_circles: number
-  circle_application_deadline: string
-  status: 'planning' | 'registration_open' | 'registration_closed' | 'ongoing' | 'completed'
-  created_at: string
-  updated_at: string
-}
+export type { Database } from './database.types'
+import type { CircleRow, EventRow } from './database.types'
 
-export interface Circle {
-  id: string
-  event_id: string
-  circle_code: string
-  circle_name: string
-  circle_name_furigana?: string
-  pen_name: string
-  pen_name_furigana?: string
-  email: string
-  phone?: string
-  address?: string
-  postal_code?: string
-  country?: string
-  emergency_contact_name?: string
-  emergency_contact_phone?: string
-  co_rep_name?: string
-  co_rep_email?: string
-  co_rep_phone?: string
-  circle_cut_file_url?: string
-  sample_works_images?: string[]
-  website?: string
-  twitter?: string
-  instagram?: string
-  pixiv?: string
-  space_preference?: 'circle_space_1' | 'circle_space_2' | 'circle_space_4' | 'circle_booth_a' | 'circle_booth_b'
+/**
+ * @deprecated Compat aliases for the two interfaces this file used to hand-write.
+ * They now point at the schema-derived rows, so the ~14-column drift is gone.
+ * Import `TableRow<'circles'>` in new code; P11 drops the last consumer.
+ *
+ * `space_preference` and `space_size` are NOT columns — they are two of the
+ * phantoms the old interface invented, still read by `CircleManagement.tsx`.
+ * They are typed optional here so the build stays green while P11 owns that
+ * file; at runtime they are `undefined` from every query, real or demo. The real
+ * column is `space_type`.
+ */
+export type Circle = CircleRow & {
+  /** @deprecated not a column — use `space_type`. */
+  space_preference?: string
+  /** @deprecated not a column. */
   space_size?: string
-  additional_table?: boolean
-  additional_chair?: boolean
-  additional_power?: boolean
-  fandom?: string
-  genre?: string
-  rating?: 'all_ages' | 'r15' | 'r18'
-  description?: string
-  works_description?: string
-  exhibitor_passes?: number
-  product_types?: string[]
-  previous_participation?: boolean
-  sells_commission?: boolean
-  marketplace_link?: string
-  total_amount?: number
-  payment_status?: 'pending' | 'paid' | 'refunded' | 'cancelled'
-  application_status?: 'pending' | 'under_review' | 'accepted' | 'rejected' | 'waitlisted'
-  booth_number?: string
-  special_requests?: string
-  notes?: string
-  created_at: string
-  updated_at: string
-  user_id?: string
 }
+export type Event = EventRow
+export type {
+  BoothRow,
+  CircleCatalogRow,
+  CircleRow,
+  EventFinancialSummaryRow,
+  EventRow,
+  ProfileRow,
+  TableInsert,
+  TableRow,
+  TableUpdate,
+  TicketRow,
+} from './database.types'
