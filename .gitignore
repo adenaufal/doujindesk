@@ -102,10 +102,12 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Supabase local development
-.branches
-.temp
-supabase/
+# Supabase local development state.
+# Deliberately NOT `supabase/` — that blanket rule hid supabase/migrations/*.sql,
+# which is the schema contract and must be tracked.
+supabase/.branches/
+supabase/.temp/
+supabase/config.ts
 
 # ===================================
 # SENSITIVE DATA & CREDENTIALS
@@ -132,9 +134,9 @@ secrets/
 # DATABASE & STORAGE
 # ===================================
 
-# Database Files
+# Database dumps and backups. NOT a blanket `*.sql` — migrations are source.
 *.dump
-*.sql
+backups/*.sql
 *.sqlite
 *.sqlite3
 *.db

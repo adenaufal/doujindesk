@@ -10,10 +10,15 @@ and `P16-hardening` restructure this file.
 - Planning — audited the codebase across 5 lenses, researched UX references on
   Mobbin, generated and merged 3 competing architecture proposals into `PLAN.md`
   (16 packages, 7 waves).
+- `P1-repo-hygiene` — narrowed `.gitignore` (blanket `supabase/` and `*.sql` →
+  `supabase/.branches/`, `supabase/.temp/`, `supabase/config.ts`, `backups/*.sql`)
+  and deleted `supabase/config.ts` in the same commit, so tracking migrations never
+  exposed the plaintext service role key it held. `001_initial_schema.sql` is now
+  tracked. Added `.env.example` (four names, no values) and extended `.vercelignore`.
 
 ## In progress
 
-- Wave 0 — `P1-repo-hygiene`
+- Wave 1 — `P2-rls-foundation`, `P3-platform`, `P7-design-system`
 
 ## Blocked
 
@@ -21,12 +26,21 @@ and `P16-hardening` restructure this file.
   project (`iaieygnykpwckdwkhcqc`). Every `supabase/migrations/00N_*.sql` this plan
   produces is written and committed but never run. Applying them is the owner's
   call: `supabase db push`, after review.
-- **Rotate the service role key.** It sat in plaintext in `supabase/config.ts` in
-  the working tree. It was never committed (verified: `git log --all -S
-  'service_role'` is empty), so this is precaution rather than incident response —
-  but the key is long-lived (`exp` 2035) and rotation is cheap.
+- **Owner must rotate the Supabase service role key.** It sat in plaintext in
+  `supabase/config.ts` on disk; treat it as compromised regardless of the
+  gitignore. It was never committed (verified: `git log --all -S 'service_role'`
+  is empty) and the file is now deleted, but the key is long-lived (`exp` 2035),
+  it was readable by anything with filesystem access, and rotation is cheap.
 
 ## Deferred
 
-- Nothing yet. Anything found outside the scope fence in `PLAN_PROMPT.md` gets one
-  line here rather than an implementation.
+Anything found outside the scope fence in `PLAN_PROMPT.md` gets one line here
+rather than an implementation.
+
+- Staff shift scheduling — outside the scope fence.
+- Incident tracking — outside the scope fence.
+- Staff performance metrics — outside the scope fence.
+- Internal staff chat / messaging — outside the scope fence (the brief names "no
+  chat system" explicitly).
+- Web Push *send* — needs VAPID keys and a server route to hold the private half.
+  In-app notifications cover the same jobs without either.

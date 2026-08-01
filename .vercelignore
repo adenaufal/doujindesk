@@ -4,3 +4,13 @@ dist
 .git
 .trae
 .log
+
+# Secrets never leave the machine. Vercel env vars are set in the dashboard.
+.env*
+!.env.example
+
+# Migrations are the owner's to apply; the deploy has no use for them.
+supabase/
+
+# Test setup and fixtures are not runtime code.
+src/test/
