@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "queue": "Antrean",
+    "tasks": "Tugas",
+    "notifications": "Notifikasi"
+  },
+  "home": {
+    "hero": {
+      "title": "Jalankan konvensi doujin dari awal sampai akhir",
+      "body": "Circle mendaftar dan membayar, panitia meninjau lalu mengalokasikan booth, pengunjung membeli tiket, dan staf memindainya di pintu masuk — termasuk saat wifi venue putus.",
+      "browse": "Lihat event"
+    },
+    "events": {
+      "title": "Event",
+      "emptyTitle": "Belum ada event yang dipublikasikan",
+      "emptyBody": "Event yang sudah dipublikasikan muncul di sini. Panitia juga melihat drafnya sendiri setelah masuk.",
+      "registrationOpen": "Pendaftaran dibuka",
+      "ongoing": "Sedang berlangsung"
+    },
+    "flow": {
+      "title": "Alur sebuah event",
+      "apply": "Circle mendaftar",
+      "applyBody": "Satu formulir dengan draf tersimpan, circle cut, dan pembayaran.",
+      "allocate": "Panitia mengalokasikan",
+      "allocateBody": "Tinjau antrean, terima atau masukkan ke daftar tunggu, lalu tempatkan booth di denah.",
+      "sell": "Pengunjung membeli tiket",
+      "sellBody": "Tier per hari, harga ditentukan server, satu pas QR untuk tiap orang yang masuk.",
+      "scan": "Staf memindai di pintu",
+      "scanBody": "Pemindaian tersimpan di perangkat saat wifi putus dan disinkronkan saat tersambung lagi."
+    }
+  }
+}

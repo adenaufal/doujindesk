@@ -29,9 +29,29 @@
     "wrongDayBody": "このチケットは{{day}}に有効です。",
     "refunded": "返金済みのチケット",
     "refundedBody": "返金済みのため入場できません。",
+    "admitted": "入場を受け付けました",
+    "not_found": "無効なチケット",
+    "not_foundBody": "このコードはこのイベントのチケットではありません。",
+    "unpaid": "未払いのチケット",
+    "unpaidBody": "この注文は未払いです。チケット窓口へご案内してください。",
+    "revoked": "無効化されたチケット",
+    "revokedBody": "このチケットは返金または取り消し済みのため入場できません。",
+    "wrong_event": "イベントが違います",
+    "wrong_eventBody": "このチケットは別のイベントのものです。",
+    "outside_window": "有効期間外です",
+    "outside_windowBody": "このチケットは現在の時間帯では使用できません。",
     "undo": "入場を取り消す",
     "undone": "入場を取り消しました",
     "dismiss": "閉じる"
+  },
+  "mirror": {
+    "title": "オフライン用チケット一覧",
+    "download": "オフライン用にチケットを取得",
+    "update": "一覧を更新",
+    "ready": "{{count}}件 ・ {{time}}",
+    "missing": "未取得のため、オフラインでは照合できません",
+    "downloading": "取得中…",
+    "failed": "取得に失敗しました"
   },
   "ticket": {
     "holder": "購入者",
@@ -44,7 +64,13 @@
     "title": "同期の競合",
     "body_other": "{{count}}件のチケットは別の場所で使用済みだったため、入場は取り消されました。",
     "review": "競合を確認",
-    "resolved": "確認済みにしました"
+    "resolved": "確認済みにしました",
+    "open_other": "競合 {{count}}件",
+    "acknowledge": "確認済みにする",
+    "acknowledgeAll": "すべて確認済みにする",
+    "empty": "競合はありません",
+    "thisScan": "この端末 {{time}}",
+    "firstScan": "最初の読み取り {{time}} ・ {{gate}}"
   },
   "camera": {
     "requesting": "カメラの使用許可を確認しています",

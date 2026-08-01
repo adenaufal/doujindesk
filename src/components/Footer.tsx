@@ -1,116 +1,56 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import {
-  Home,
-  LayoutDashboard,
-  FileText,
-  Settings,
-  MapPin,
-  Ticket,
-  DollarSign,
-  Users,
-  Map,
-  Bell
-} from 'lucide-react';
+import { useTranslation } from 'react-i18next'
+import { Link, useParams } from 'react-router-dom'
 
-const Footer: React.FC = () => {
-  const footerLinks = [
-    { to: '/', label: 'Home', icon: Home },
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/apply', label: 'Apply', icon: FileText },
-    { to: '/manage', label: 'Manage', icon: Settings },
-    { to: '/booths', label: 'Booths', icon: MapPin },
-    { to: '/tickets', label: 'Tickets', icon: Ticket },
-    { to: '/financial', label: 'Financial', icon: DollarSign },
-    { to: '/staff', label: 'Staff', icon: Users },
-    { to: '/guide', label: 'Guide', icon: Map },
-    { to: '/notifications', label: 'Notifications', icon: Bell }
-  ];
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { PUBLIC_NAV, visibleItems } from '@/components/layout/nav'
+
+/**
+ * Public footer only. The old one listed Financial, Staff, Booths and Manage to
+ * anonymous attendees — every link now comes from the role-aware table in
+ * `layout/nav.ts`, and this layout is the public one, so it shows public links.
+ * The "Features" column that advertised offline-first and PWA capabilities is
+ * gone: it described the README, not the code.
+ */
+export function Footer() {
+  const { t } = useTranslation()
+  const { eventId } = useParams()
+  const links = visibleItems(PUBLIC_NAV, null, eventId)
 
   return (
-    <footer className="bg-background border-t border-border mt-auto">
-      <div className="container mx-auto px-4 py-8">
-        {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Brand Section */}
-          <div className="col-span-1 lg:col-span-1">
-            <h3 className="text-lg font-semibold text-foreground mb-4">DoujinDesk</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Complete PWA for doujin/comic convention management. Manage events, booths, tickets, and more.
-            </p>
-          </div>
+    <footer className="mt-auto border-t border-border bg-background">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-sm">
+          <p className="text-sm font-semibold text-foreground">{t('app.name')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('app.tagline')}</p>
+        </div>
 
-          {/* Quick Links */}
-          <div className="col-span-1">
-            <h4 className="text-md font-medium text-foreground mb-4">Quick Links</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {footerLinks.slice(0, 5).map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 p-2 rounded-md hover:bg-accent"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{label}</span>
-                </Link>
+        {links.length > 0 && (
+          <nav aria-label={t('shell.menu')}>
+            <ul className="grid gap-1 sm:grid-cols-2">
+              {links.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    to={item.to}
+                    className="inline-flex items-center rounded-md py-1.5 pr-3 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11"
+                  >
+                    {t(item.labelKey)}
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
-
-          {/* Management */}
-          <div className="col-span-1">
-            <h4 className="text-md font-medium text-foreground mb-4">Management</h4>
-            <div className="grid grid-cols-1 gap-2">
-              {footerLinks.slice(5).map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 p-2 rounded-md hover:bg-accent"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Additional Info */}
-          <div className="col-span-1">
-            <h4 className="text-md font-medium text-foreground mb-4">Features</h4>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li>• Offline-first architecture</li>
-              <li>• Multi-currency support</li>
-              <li>• Real-time updates</li>
-              <li>• Role-based access</li>
-              <li>• PWA capabilities</li>
             </ul>
-          </div>
-        </div>
+          </nav>
+        )}
 
-        {/* Bottom Bar */}
-        <div className="border-t border-border mt-8 pt-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-muted-foreground">
-               © 2025 DoujinDesk. All rights reserved.
-             </div>
-            <div className="flex flex-wrap gap-4">
-              {footerLinks.map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
-                  title={label}
-                >
-                  <Icon className="h-3 w-3" />
-                  <span className="hidden sm:inline">{label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
+        <LanguageSwitcher className="md:hidden" />
+      </div>
+
+      <div className="border-t border-border">
+        <p className="mx-auto w-full max-w-6xl px-4 py-4 text-xs text-muted-foreground">
+          © {new Date().getFullYear()} {t('app.name')}
+        </p>
       </div>
     </footer>
-  );
-};
+  )
+}
 
-export default Footer;
+export default Footer

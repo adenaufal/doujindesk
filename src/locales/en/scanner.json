@@ -30,9 +30,29 @@
     "wrongDayBody": "This ticket is valid on {{day}}.",
     "refunded": "Refunded ticket",
     "refundedBody": "This ticket was refunded and cannot be admitted.",
+    "admitted": "Checked in",
+    "not_found": "Invalid ticket",
+    "not_foundBody": "This code is not a ticket for this event.",
+    "unpaid": "Not paid",
+    "unpaidBody": "This order has not been paid. Send them to the ticket desk.",
+    "revoked": "Revoked ticket",
+    "revokedBody": "This ticket was refunded or cancelled and cannot be admitted.",
+    "wrong_event": "Wrong event",
+    "wrong_eventBody": "This ticket belongs to another event.",
+    "outside_window": "Wrong day",
+    "outside_windowBody": "This ticket is not valid at this time.",
     "undo": "Undo check-in",
     "undone": "Check-in undone",
     "dismiss": "Dismiss"
+  },
+  "mirror": {
+    "title": "Offline ticket list",
+    "download": "Download tickets for offline",
+    "update": "Update list",
+    "ready": "{{count}} tickets · {{time}}",
+    "missing": "Not downloaded — offline scans cannot be checked",
+    "downloading": "Downloading…",
+    "failed": "Download failed"
   },
   "ticket": {
     "holder": "Holder",
@@ -46,7 +66,14 @@
     "body_one": "{{count}} ticket was already used elsewhere and was not admitted.",
     "body_other": "{{count}} tickets were already used elsewhere and were not admitted.",
     "review": "Review conflicts",
-    "resolved": "Marked as reviewed"
+    "resolved": "Marked as reviewed",
+    "open_one": "Conflict ({{count}})",
+    "open_other": "Conflicts ({{count}})",
+    "acknowledge": "Acknowledge",
+    "acknowledgeAll": "Acknowledge all",
+    "empty": "No conflicts",
+    "thisScan": "This device {{time}}",
+    "firstScan": "First scanned {{time}} · {{gate}}"
   },
   "camera": {
     "requesting": "Requesting camera access",

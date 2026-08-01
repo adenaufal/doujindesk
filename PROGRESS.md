@@ -209,6 +209,139 @@ and `P16-hardening` restructure this file.
     retire it with `events.status = 'cancelled'`. This is intended; the ledger is
     the point.
 
+- `P6-schema-completion` — wrote `005_operations.sql` and
+  `006_catalog_floorplan_storage.sql`. **005**: the ~15 form fields that are not
+  columns (so the app's only real write stops failing with PGRST204),
+  `sells_commission` DECIMAL→boolean with the rate moved to `commission_rate`,
+  `draft`/`submitted` added to the application_status domain, `circle_code`'s
+  *global* UNIQUE replaced by `UNIQUE(event_id, circle_code)` (every convention
+  restarts at A-01) plus `UNIQUE(event_id, user_id)` so one account cannot flood
+  the queue, a `circle_name_sort_key` folded katakana→hiragana by an IMMUTABLE
+  `kana_sort_key()` and maintained by trigger (Postgres orders kanji by code
+  point, which is not 五十音), and five operations tables — `staff_tasks`
+  (uuid[] + GIN, not a join table), `announcements` (jsonb title/body keyed
+  {en,ja,id}), `notifications`, `event_schedule`, `queues` — plus
+  `event_counters`. The counter exists because a raw `ticket_scans` subscription
+  at doors-open is O(scans × clients) of realtime traffic to every organizer
+  phone on venue wifi; one row is O(clients). `admitted_count` is incremented by
+  an AFTER INSERT trigger on `ticket_scans` (entry only — `reentry` would inflate
+  the headcount every lunch break), `queue_total` is rolled up from open
+  `queues`, and neither has a write grant. **006**: `public.circle_catalog`, a
+  `security_barrier` view with an explicit projection and no `SELECT *` — `anon`
+  never gets a policy on `circles`, because that row holds email, phone, address,
+  co-rep contacts and emergency contacts; `booths_no_overlap`, a
+  `btree_gist` EXCLUDE constraint that makes geometric collision a 23P01 from the
+  database rather than a check two organizers on two laptops can both pass;
+  `one_booth_per_circle`; `events.floor_plan jsonb`; and two storage buckets with
+  real `file_size_limit`/`allowed_mime_types` (the form's 5MB check is one curl
+  away from irrelevant) behind owner-folder policies on `storage.objects`.
+  - **Verified by execution.** 001 → 006 were applied in order to a throwaway
+    local `postgres:15` container (never the live project) behind ~40 lines of
+    Supabase-shaped stubs (`auth.users`, `auth.uid()`, `storage.buckets/objects`,
+    `storage.foldername`, the `anon`/`authenticated` roles, an empty
+    `supabase_realtime` publication), then exercised with 37 `RAISE EXCEPTION`
+    assertions under `SET ROLE authenticated` / `SET ROLE anon` — all green,
+    including: an applicant can submit their own draft but cannot self-approve,
+    write `review_notes`/`waitlist_position` or zero `total_amount`; an organizer
+    accept stamps `reviewed_at`/`reviewed_by`; 亜細亜組 sorts before 渋谷スタジオ
+    by reading; `anon` reads 3 catalog rows and 0 raw `circles` rows; an accepted
+    circle on a *draft* event stays out of the catalog; edge-adjacent booths are
+    allowed while a genuine overlap raises 23P01; two `redeem_tickets` admissions
+    move the counter to 2 and a duplicate + a reentry leave it there; a recipient
+    can mark a notification read but cannot rewrite its text or post into anyone
+    else's inbox; a circle cannot upload into another circle's storage folder.
+    The harness was deleted afterwards — it is 5 files and reproducible from this
+    paragraph, and it is not this package's to own.
+  - **The plan asked for a new `enforce_circle_field_permissions()` trigger.**
+    002 already ships exactly that under the name
+    `circles_guard_privileged_columns`, and the name is load-bearing: BEFORE
+    triggers fire in name order and 004's `circles_set_total_amount` must run
+    after it. A second trigger would fight the first, so 005 issues a
+    `CREATE OR REPLACE` of the 002 *function* (002's file is untouched) that adds
+    the new review columns and **one behaviour change**: a non-organizer may now
+    make the single transition `draft → submitted`. Without it the applicant
+    cannot press Submit, because 002's guard reverts every `application_status`
+    change for a non-organizer.
+  - **The EXCLUDE constraint insets each booth by 0.01.** `box && box` treats
+    boxes that merely *touch* as overlapping, and convention floor plans are laid
+    out edge to edge — the literal expression in `PLAN.md` would have rejected
+    A-02 placed flush against A-01 and made the constraint unusable. Coordinates
+    are `numeric(8,2)`, so 0.01 is one representable unit: booths must genuinely
+    interpenetrate to be refused. Tested both ways.
+  - **`notifications.title`/`body` are jsonb, not text.** The plan lists them as
+    plain columns, but the announcement fan-out would then have to pick a locale
+    per recipient at write time and freeze the text in whatever language they
+    preferred that day. jsonb keyed `{en,ja,id}` matches `announcements`; the
+    client renders `body[locale] ?? body.en`.
+  - **`circle_catalog` also projects `description` and `works_description`**,
+    which the plan's column list omits. They are circle-authored catalog copy,
+    the only prose the catalog has, and P13 cannot add them (the view is this
+    package's). Everything genuinely private is named in a `COMMENT ON VIEW` as
+    a do-not-add list.
+  - **`circles.circle_code` is now nullable.** 001 made it NOT NULL, which is why
+    the application form generates `C123456AB` junk client-side. A draft has no
+    code, and the real code (A-01) is the organizer's to allocate. P11 should
+    stop generating one.
+  - **For P11/P12/P13**: the upload path must become `${uid}/${uuid}.${ext}` in
+    bucket `circle-public` or every upload 403s (tested); `booths.circle_id` is
+    the single source of truth for allocation and `circles.booth_number` is
+    deprecated — read `circle_catalog.booth_number`; catch 23P01 from the
+    floor-plan editor instead of re-implementing collision detection; and
+    `announcements`/`event_schedule` titles are jsonb, not strings.
+
+- `P10-offline-scanner` — criterion 3, built on the P4 contract and the 003
+  constraints. `src/lib/scanQueue.ts`: Dexie (`doujindesk-scans`) with
+  `pendingScans` + `ticketMirror` + `mirrorMeta`; `enqueue()` writes IndexedDB
+  before anything touches the network, `flush()` drains `sync_state='pending'` in
+  batches of 50 through one `redeem_tickets` RPC and is idempotent via
+  `UNIQUE(client_scan_id)`, triggered on `online` and `visibilitychange` (never
+  Background Sync — iOS Safari does not implement it). Any non-admitted answer
+  becomes a `conflict` row that survives until acknowledged. `checkLocal()` reads
+  the pre-doors mirror plus this device's own queue and returns `null` only when
+  there is genuinely nothing to say. `src/lib/ticketCode.ts`: the scannable
+  payload is the `qr_token` uuid and nothing else; `src/lib/qrcode.ts` is down to
+  `generateQRCode` — the old `parseQRCode`/`validateQRCode` decided admission
+  from the payload's own claims, so typing JSON into the manual box admitted a
+  person. `TicketScanner.tsx` rewritten as a full-bleed viewfinder
+  (`BarcodeDetector` decode loop at ~8fps, corner brackets, sync-state chip,
+  torch, always-available manual entry, mirror download with count + timestamp,
+  vibrate + WebAudio per outcome) with `ScanResultSheet` (green admitted / amber
+  queued / red duplicate naming the winning device, gate and time) and a
+  persistent `ConflictList`. The lying `syncOfflineData()` "Sync Complete" toast
+  and the local-array "already used" check are gone. 9 tests in
+  `src/lib/scanQueue.test.ts` against a fake server that enforces both SQL unique
+  constraints, including the 50-scans-offline case (zero network calls, one RPC
+  on reconnect) and double-admit across two devices. `TicketScanner.tsx` removed
+  from the eslint token-gate baseline.
+
+- `P8-auth-shell` — criterion 2. `src/stores/authStore.ts` rewritten against
+  Supabase Auth: `getSession()` on boot plus an `onAuthStateChange` subscription
+  (`initAuth()` from App.tsx), `signIn/signUp/signOut`, and `role` read from the
+  `profiles` table — the seeded admin user, `'mock-session-token'`,
+  `permissions: string[]`, `hasPermission()` and the `persist` middleware are all
+  gone (a persisted role is a privilege bug; the Supabase client already persists
+  the session). `RequireRole` guards every route: skeleton while `loading`,
+  `/login?next=…` when unauthenticated, the role's own home when the role is
+  wrong. Three layout routes in `App.tsx` — Public (topbar + footer), App (240px
+  `--sidebar-*` rail collapsing to a Radix Dialog drawer below `lg`, event
+  switcher on top, EVENT/OPERATIONS/MONEY groups from `layout/nav.ts`, role badge
+  + user row pinned at the bottom, topbar with breadcrumb, connectivity chip,
+  theme toggle, bell and account menu) and Focus (full-bleed, no chrome, what the
+  scanner renders into). Nine previously unrouted components now have a path and
+  a role, `eventId="default-event-id"` is gone, and `:eventId` from the URL is the
+  only event scope. `useTheme` is a real module store with an explicit topbar
+  toggle, OS default and localStorage persistence — it was previously per-component
+  state whose only caller was `<Toaster />`. `Footer` folded into the role-aware
+  nav table (it used to offer Financial, Staff and Booths to anonymous
+  attendees); `FontLoader.tsx` deleted (its `mode: 'no-cors'` HEAD check could
+  never fail, and P7 self-hosts the font). `Home.tsx` rewritten as the honest
+  landing page and event chooser — the `from-blue-50 to-indigo-100` gradient, the
+  103 palette violations, "Join thousands of circles and organizers" and "Trusted
+  by Convention Organizers" are gone, and it now lists real events from Supabase
+  with loading/error/empty states; removed from the eslint token-gate baseline.
+  New `shell` i18n namespace in en/ja/id. 10 tests: `RequireRole.test.tsx` (4)
+  and `layout/nav.test.ts` (6).
+
 ## In progress
 
 - Wave 1 — `P2-rls-foundation`, `P3-platform`, `P7-design-system`
@@ -257,3 +390,12 @@ rather than an implementation.
   and 7 screen components. Left alone by P7 — those files belong to P9 (which
   deletes four of the stores outright) and to the Wave 5 screen packages. P16
   closes whatever survives.
+- Shell follow-ups P8 could not do inside its own files: strip the now-redundant
+  `min-h-screen` wrappers from `Dashboard.tsx:195`, `BoothAllocation.tsx:224`,
+  `EventGuide.tsx:238` and `AttendeeRegistration.tsx:231/275` (they nest a
+  full-height scroll container inside the shell's own) — those files belong to
+  P12/P13/P14. `/circle/status` and `/wallet` still point at
+  `CircleApplicationForm`/`AttendeeRegistration` until P11 adds
+  `pages/CircleStatus.tsx` and P13 adds `TicketWallet.tsx`. The event switcher has
+  no `+ Create event` row because no package owns a create-event screen — an
+  organizer's first event has to be inserted by hand today.

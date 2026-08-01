@@ -29,9 +29,29 @@
     "wrongDayBody": "Tiket ini berlaku pada {{day}}.",
     "refunded": "Tiket sudah direfund",
     "refundedBody": "Tiket ini sudah dikembalikan dananya dan tidak bisa masuk.",
+    "admitted": "Check-in berhasil",
+    "not_found": "Tiket tidak valid",
+    "not_foundBody": "Kode ini bukan tiket untuk acara ini.",
+    "unpaid": "Belum dibayar",
+    "unpaidBody": "Pesanan ini belum dibayar. Arahkan ke loket tiket.",
+    "revoked": "Tiket dibatalkan",
+    "revokedBody": "Tiket ini sudah direfund atau dibatalkan sehingga tidak bisa masuk.",
+    "wrong_event": "Salah acara",
+    "wrong_eventBody": "Tiket ini milik acara lain.",
+    "outside_window": "Di luar jadwal",
+    "outside_windowBody": "Tiket ini tidak berlaku pada waktu ini.",
     "undo": "Batalkan check-in",
     "undone": "Check-in dibatalkan",
     "dismiss": "Tutup"
+  },
+  "mirror": {
+    "title": "Daftar tiket offline",
+    "download": "Unduh tiket untuk offline",
+    "update": "Perbarui daftar",
+    "ready": "{{count}} tiket · {{time}}",
+    "missing": "Belum diunduh — pindaian offline tidak bisa dicek",
+    "downloading": "Mengunduh…",
+    "failed": "Unduhan gagal"
   },
   "ticket": {
     "holder": "Pemegang",
@@ -44,7 +64,13 @@
     "title": "Konflik sinkronisasi",
     "body_other": "{{count}} tiket ternyata sudah dipakai di tempat lain dan tidak jadi diloloskan.",
     "review": "Tinjau konflik",
-    "resolved": "Ditandai sudah ditinjau"
+    "resolved": "Ditandai sudah ditinjau",
+    "open_other": "Konflik ({{count}})",
+    "acknowledge": "Tandai sudah dilihat",
+    "acknowledgeAll": "Tandai semua",
+    "empty": "Tidak ada konflik",
+    "thisScan": "Perangkat ini {{time}}",
+    "firstScan": "Pindaian pertama {{time}} · {{gate}}"
   },
   "camera": {
     "requesting": "Meminta izin kamera",

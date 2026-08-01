@@ -50,7 +50,6 @@ const tokenGate = [
 // the code is.
 const TOKEN_GATE_BASELINE = [
   'src/components/Dashboard.tsx', //           79
-  'src/pages/Home.tsx', //                     59
   'src/components/QueueStatus.tsx', //         49
   'src/components/AnnouncementSystem.tsx', //  49
   'src/components/NotificationCenter.tsx', //  35
@@ -63,7 +62,6 @@ const TOKEN_GATE_BASELINE = [
   'src/components/StaffCoordination.tsx', //   15
   'src/components/FinancialManagement.tsx', // 14
   'src/components/CircleManagement.tsx', //    14
-  'src/components/TicketScanner.tsx', //        8
   'src/components/TicketingSystem.tsx', //      1
   'src/components/PaymentProcessor.tsx', //     1
 ]

@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "queue": "Queue",
+    "tasks": "Tasks",
+    "notifications": "Notifications"
+  },
+  "home": {
+    "hero": {
+      "title": "Run a doujin convention end to end",
+      "body": "Circles apply and pay, organizers review and allocate booths, attendees buy tickets, and staff scan them at the door — including when the venue wifi drops.",
+      "browse": "Browse events"
+    },
+    "events": {
+      "title": "Events",
+      "emptyTitle": "No events published yet",
+      "emptyBody": "Published events appear here. Organizers also see their own drafts once they sign in.",
+      "registrationOpen": "Applications open",
+      "ongoing": "Happening now"
+    },
+    "flow": {
+      "title": "How an event runs",
+      "apply": "Circles apply",
+      "applyBody": "One application form with a saved draft, a circle cut, and payment.",
+      "allocate": "Organizers allocate",
+      "allocateBody": "Work the review queue, accept or waitlist, then place booths on the floor plan.",
+      "sell": "Attendees buy tickets",
+      "sellBody": "Tiers per day, priced by the server, with one QR pass per admitted person.",
+      "scan": "Staff scan at the door",
+      "scanBody": "Scans queue on the device when the wifi drops and reconcile on reconnect."
+    }
+  }
+}
