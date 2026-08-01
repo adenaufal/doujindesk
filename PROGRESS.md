@@ -96,9 +96,43 @@ and `P16-hardening` restructure this file.
     contributes **0** violations. One of the 24 (`ui/textarea.tsx`) was in this
     package's lane and is fixed.
 
+- `P4-scan-contract` — froze the contract the Dexie queue, the scanner UI and the
+  criterion-3 tests are all written against. `supabase/migrations/003_scanning.sql`
+  adds `ticket_passes` (one opaque-uuid pass per admitted person, so an order for
+  five admits five and not once-or-unlimited) and an append-only `ticket_scans`
+  that logs failures too. Two constraints carry the whole offline story:
+  `UNIQUE (client_scan_id)` makes replaying the IndexedDB queue idempotent, and
+  the partial unique index `one_admission_per_pass` makes double admission
+  impossible **in the database** — the 23505 it raises *is* the visible conflict
+  criterion 3 asks for. `redeem_tickets(p_scans jsonb)` is `SECURITY DEFINER`,
+  `SET search_path = ''`, authorises every item separately, locks the parent
+  order, evaluates the validity window in `events.timezone`, and returns the same
+  seven keys for a fresh scan and a replayed one (one builder,
+  `scan_result_json`). No write policy on either table plus
+  `REVOKE INSERT, UPDATE, DELETE`, so a scanner-role staffer cannot hand-forge an
+  `admitted` row. `src/lib/scanContract.ts` is the TypeScript half — zero imports,
+  no Supabase, no React — with one pure `resolveScanOutcome(local, server)` used
+  by both the optimistic UI and the authoritative sync loop, so the two can never
+  disagree about what "already used" means. 9 tests in `scanContract.test.ts`,
+  no DB and no DOM.
+  - **`PendingScan` carries `event_id`, which `PLAN.md` does not list.** It has
+    to: `ticket_scans.event_id` is NOT NULL and an unknown code still gets
+    logged, so it cannot be derived from the pass. It is also what the server
+    compares against the pass to produce `wrong_event`. P10 must send it.
+  - **`resolveScanOutcome` never returns `admitted` without a server answer.** A
+    queued scan is amber, permanently, until `flush()` resolves it, and a
+    `duplicate` sets `autoDismiss: false` as part of the contract rather than as
+    a UI choice. Anything that paints an unconfirmed scan green is the silent
+    double-admit in a nicer colour.
+  - **Re-entry.** `one_admission_per_pass` also blocks legitimate wristband
+    out-and-back, which real conventions do. The upgrade path is already in the
+    schema: `scan_type = 'reentry'` sits outside the partial index. Never drop
+    the index — that restores double-admission with no error anywhere.
+
 ## In progress
 
 - Wave 1 — `P2-rls-foundation`, `P3-platform`, `P7-design-system`
+- Wave 2 — `P4-scan-contract` landed; `P5-money-core`, `P15-i18n` outstanding
 
 ## Blocked
 
