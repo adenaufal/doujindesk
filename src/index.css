@@ -1,12 +1,41 @@
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
-
-/* Local font fallback */
-@import './assets/fonts/figtree.css';
+/* Self-hosted variable Figtree. Replaces the Google Fonts <link>/@import and the
+   ./assets/fonts/figtree.css "local backup" that actually pointed at gstatic TTFs.
+   Ships WOFF2 from node_modules, so the service worker precaches it for free. */
+@import '@fontsource-variable/figtree';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =============================================================================
+   TOKEN CONTRACT — the only legal source of colour in this app.
+   Every value below is an HSL triplet consumed by tailwind.config.js as
+   `hsl(var(--token) / <alpha-value>)`, so alpha modifiers (bg-primary/90,
+   ring-ring/50, bg-success/10) work on every token.
+
+   MIGRATION TABLE — raw palette class -> token utility. The ESLint
+   `no-restricted-syntax` gate in eslint.config.js points here.
+
+     gray-900/800, slate-800, dark:text-white ....... text-foreground
+                                                      (drop the dark: variant,
+                                                       the token covers both themes)
+     gray-700/600/500/400 .......................... text-muted-foreground
+     bg-white, dark:bg-gray-800 .................... bg-card
+     bg-gray-50 / bg-gray-100 ...................... bg-muted
+     border-gray-200 / border-gray-300 ............. border-border
+     blue-600 (as brand/CTA) ....................... primary
+     bg-blue-50 .................................... bg-primary/10
+     green-*  ...................................... success  / bg-success-subtle
+     yellow-* / amber-* ............................ warning  / bg-warning-subtle
+     red-* ......................................... destructive / bg-destructive-subtle
+     sky-* / cyan-* (informational) ................ info / bg-info-subtle
+     track / genre / category badges ............... chart-3 / chart-4 / chart-5
+     bg-gradient-to-* .............................. deleted outright, no replacement
+
+   CONTRAST — every solid/foreground pair and every text-on-subtle pair below is
+   >= 4.5:1 in both themes (WCAG 2.1 AA body text). --ring and --chart-1 stay at
+   the brighter 16 100% 50% because they are non-text and only need 3:1.
+   ============================================================================= */
 
 :root {
   --background: 0 0% 100%;
@@ -15,35 +44,63 @@
   --card-foreground: 0 0% 7%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 7%;
-  --primary: 16 100% 50%;
+
+  /* Brand orange darkened from 16 100% 50% (#ff4500, 3.44:1 on white — fails AA
+     for a 14px button label) to 16 100% 42% (#d63900, 4.72:1). See PROGRESS.md. */
+  --primary: 16 100% 42%;
   --primary-foreground: 0 0% 100%;
   --secondary: 225 73% 57%;
   --secondary-foreground: 0 0% 100%;
   --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
+  /* 45% only reaches 4.35:1 against --muted; 42% clears AA on both --muted
+     and --background. Same reason --sidebar-foreground moved off 45%. */
+  --muted-foreground: 0 0% 42%;
   --accent: 0 0% 96%;
   --accent-foreground: 0 0% 7%;
-  --destructive: 16 100% 50%;
+
+  /* Status triad + destructive. --destructive used to be byte-identical to
+     --primary, which made Reject and Submit the same pixel. */
+  --destructive: 0 72% 45%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-subtle: 0 86% 95%;
+  --success: 142 72% 29%;
+  --success-foreground: 0 0% 100%;
+  --success-subtle: 142 60% 94%;
+  --warning: 35 92% 31%;
+  --warning-foreground: 0 0% 100%;
+  --warning-subtle: 40 96% 92%;
+  --info: 210 90% 40%;
+  --info-foreground: 0 0% 100%;
+  --info-subtle: 210 92% 94%;
+
   --border: 0 0% 90%;
   --input: 0 0% 90%;
   --ring: 16 100% 50%;
+
   --chart-1: 16 100% 50%;
   --chart-2: 225 73% 57%;
   --chart-3: 51 100% 50%;
   --chart-4: 210 100% 56%;
   --chart-5: 9 100% 64%;
+
   --sidebar: 0 0% 96%;
-  --sidebar-foreground: 0 0% 45%;
-  --sidebar-primary: 16 100% 50%;
+  --sidebar-foreground: 0 0% 42%;
+  --sidebar-primary: 16 100% 42%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 0 0% 90%;
   --sidebar-accent-foreground: 0 0% 7%;
   --sidebar-border: 0 0% 90%;
   --sidebar-ring: 16 100% 50%;
-  --font-sans: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-serif: 'Figtree', Georgia, 'Times New Roman', Times, serif;
-  --font-mono: 'Figtree', 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
+
+  /* Figtree carries no CJK glyphs. The JA fallbacks are system faces on every
+     target device and cost zero bytes; shipping Noto Sans JP as a webfont would
+     be megabytes over exactly the venue wifi this app exists to survive. */
+  --font-sans: 'Figtree Variable', 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', Meiryo, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  /* Booth codes, ticket ids and money columns have to align. --font-mono used to
+     point at Figtree, a proportional face. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', Consolas, 'Liberation Mono', monospace;
+
   --radius: 0.5rem;
   --shadow-2xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.05);
@@ -64,36 +121,50 @@
   --card-foreground: 0 0% 96%;
   --popover: 0 0% 10%;
   --popover-foreground: 0 0% 96%;
+
+  /* The full-strength brand orange is legible on a near-black page (5.42:1) and
+     takes a near-black label (5.42:1); white-on-orange would be 3.45:1. */
   --primary: 16 100% 50%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 0 0% 7%;
   --secondary: 225 73% 57%;
   --secondary-foreground: 0 0% 100%;
   --muted: 0 0% 15%;
   --muted-foreground: 0 0% 64%;
   --accent: 0 0% 20%;
   --accent-foreground: 0 0% 96%;
-  --destructive: 16 100% 50%;
-  --destructive-foreground: 0 0% 96%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 7%;
+  --destructive-subtle: 0 55% 12%;
+  --success: 142 60% 45%;
+  --success-foreground: 0 0% 7%;
+  --success-subtle: 142 45% 13%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 7%;
+  --warning-subtle: 38 60% 13%;
+  --info: 210 90% 60%;
+  --info-foreground: 0 0% 7%;
+  --info-subtle: 210 60% 15%;
+
   --border: 0 0% 15%;
   --input: 0 0% 15%;
   --ring: 16 100% 50%;
+
   --chart-1: 16 100% 50%;
   --chart-2: 225 73% 57%;
   --chart-3: 51 100% 50%;
   --chart-4: 210 100% 56%;
   --chart-5: 9 100% 64%;
+
   --sidebar: 0 0% 10%;
   --sidebar-foreground: 0 0% 64%;
   --sidebar-primary: 16 100% 50%;
-  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-primary-foreground: 0 0% 7%;
   --sidebar-accent: 0 0% 20%;
   --sidebar-accent-foreground: 0 0% 96%;
   --sidebar-border: 0 0% 15%;
   --sidebar-ring: 16 100% 50%;
-  --font-sans: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-serif: 'Figtree', Georgia, 'Times New Roman', Times, serif;
-  --font-mono: 'Figtree', 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
-  --radius: 0.5rem;
+
   --shadow-2xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0px 2px 4px 0px hsl(0 0% 0% / 0.05);
   --shadow-sm: 0px 2px 4px 0px hsl(0 0% 0% / 0.10), 0px 1px 2px -1px hsl(0 0% 0% / 0.10);
@@ -104,15 +175,12 @@
   --shadow-2xl: 0px 2px 4px 0px hsl(0 0% 0% / 0.25);
 }
 
-body {
-  letter-spacing: var(--tracking-normal);
-}
-
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground font-sans;
+    letter-spacing: var(--tracking-normal);
   }
 }
