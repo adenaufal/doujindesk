@@ -20,7 +20,10 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        // `has-[[data-slot=card-action]]:` is the v3 spelling; the v4 shorthand
+        // `has-data-[slot=card-action]:` compiled to nothing, which put every
+        // <CardAction> in the wrong grid cell.
+        "grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-[[data-slot=card-action]]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
       {...props}
